@@ -1,4 +1,5 @@
 {
+  "version": 2,
   "functions": {
     "api/**/*.js": {
       "runtime": "@vercel/node@3.0.12"
@@ -8,5 +9,6 @@
     "DATABASE_URL": "$DATABASE_URL"
   },
   "regions": ["gru1"],
-  "buildCommand": "npx prisma generate"
+  "buildCommand": "npx prisma generate",
+  "outputDirectory": "."
 }

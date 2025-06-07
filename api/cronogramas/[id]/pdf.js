@@ -108,9 +108,9 @@ function generateCalendarBody(ano, mes, atividades) {
 // --- Nova Função para Gerar o HTML Completo ---
 async function generateFullHtml(cronograma, tableBody) {
     const monthName = getMonthName(cronograma.mes).toUpperCase();
-    const leftLogoPath = path.join(__dirname, '../../..', 'CRONOGRAMA MES JUNHO', 'images', 'image3.png');
-    const rightLogoPath = path.join(__dirname, '../../..', 'CRONOGRAMA MES JUNHO', 'images', 'image2.jpg');
-    const headerTitleImagePath = path.join(__dirname, '../../..', 'CRONOGRAMA MES JUNHO', 'images', 'image1.png');
+    const leftLogoPath = path.join(__dirname, '../../CRONOGRAMA MES JUNHO', 'images', 'image3.png');
+    const rightLogoPath = path.join(__dirname, '../../CRONOGRAMA MES JUNHO', 'images', 'image2.jpg');
+    const headerTitleImagePath = path.join(__dirname, '../../CRONOGRAMA MES JUNHO', 'images', 'image1.png');
 
     const leftLogoBase64 = await imageToBase64(leftLogoPath);
     const rightLogoBase64 = await imageToBase64(rightLogoPath);
@@ -235,21 +235,6 @@ async function generateFullHtml(cronograma, tableBody) {
 
 // --- Handler da API ---
 module.exports = async (req, res) => {
-    // --- DEBUG: Listar arquivos no ambiente de produção ---
-    try {
-        const rootPath = path.resolve('/');
-        const taskPath = path.resolve('/var/task');
-        console.log('--- File System Debug ---');
-        console.log('Root "/" contents:', readdirSync(rootPath));
-        console.log('Task "/var/task" contents:', readdirSync(taskPath));
-         if (readdirSync(taskPath).includes('CRONOGRAMA MES JUNHO')) {
-            console.log('Images dir contents:', readdirSync(path.join(taskPath, 'CRONOGRAMA MES JUNHO', 'images')));
-        }
-    } catch (e) {
-        console.log('Error listing files for debugging:', e.message);
-    }
-    // --- FIM DEBUG ---
-
     if (corsHeaders(req, res)) return;
     if (req.method !== 'POST') return errorResponse(res, 'Método não permitido', 405);
 
@@ -268,10 +253,6 @@ module.exports = async (req, res) => {
         const tableBody = generateCalendarBody(cronograma.ano, cronograma.mes, cronograma.atividades);
         const html = await generateFullHtml(cronograma, tableBody);
 
-        // --- DEBUG: Salvar o HTML para inspeção ---
-        await fs.writeFile(path.join(process.cwd(), 'debug.html'), html);
-        console.log('--- HTML para depuração salvo em debug.html ---');
-
         // --- Geração do PDF ---
         const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
         const page = await browser.newPage();
@@ -289,13 +270,6 @@ module.exports = async (req, res) => {
             margin: { top: '20px', right: '20px', bottom: '20px', left: '20px' },
             preferCSSPageSize: true // Usa o tamanho da página definido no CSS se houver
         });
-        
-        // --- DEBUG: Salvar o PDF diretamente no servidor para verificar a integridade ---
-        const debugPdfPath = path.join(process.cwd(), 'server-generated-test.pdf');
-        await fs.writeFile(debugPdfPath, pdfBuffer);
-        console.log(`--- PDF de depuração salvo em: ${debugPdfPath} ---`);
-
-        await browser.close();
         
         // --- RESPOSTA CONFORME ESPECIFICADO PARA O FRONTEND ---
         const pdfBase64 = pdfBuffer.toString('base64');

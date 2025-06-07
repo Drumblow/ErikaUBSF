@@ -109,58 +109,49 @@ async function createAtividade(req, res, cronogramaId) {
   try {
     // Verificar se cronograma existe
     const cronograma = await prisma.cronograma.findUnique({
-      where: { id: cronogramaId }
+      where: { id: cronogramaId },
     });
-    
+
     if (!cronograma) {
       return errorResponse(res, 'Cronograma não encontrado', 404);
     }
-    
+
     // Validar dados de entrada
     const validatedData = validateData(req.body, schemas.atividade);
-    
+
     // Garantir que o cronogramaId seja o correto
     validatedData.cronogramaId = cronogramaId;
-    
-    // Verificar se já existe atividade para a mesma data e período
-    const existingAtividade = await prisma.atividade.findFirst({
-      where: {
-        cronogramaId,
-        data: new Date(validatedData.data),
-        diaSemana: validatedData.diaSemana
-      }
-    });
-    
-    if (existingAtividade) {
-      return errorResponse(
-        res, 
-        `Já existe uma atividade para ${validatedData.diaSemana} em ${new Date(validatedData.data).toLocaleDateString('pt-BR')}`, 
-        400
-      );
-    }
-    
+
     // Criar atividade
     const atividade = await prisma.atividade.create({
       data: {
         ...validatedData,
-        data: new Date(validatedData.data)
-      }
+        data: new Date(validatedData.data),
+      },
     });
-    
+
     return successResponse(
-      res, 
-      atividade, 
-      'Atividade criada com sucesso', 
+      res,
+      atividade,
+      'Atividade criada com sucesso',
       201
     );
-    
   } catch (error) {
     console.error('Erro ao criar atividade:', error);
-    
+
     if (error.message.includes('Dados inválidos')) {
       return errorResponse(res, error.message, 400);
     }
-    
+
+    // Tratar erro de constraint única do Prisma (P2002)
+    if (error.code === 'P2002') {
+      return errorResponse(
+        res,
+        'Já existe uma atividade com a mesma descrição, data e período.',
+        409 // Conflito
+      );
+    }
+
     const message = handlePrismaError(error);
     return errorResponse(res, message, 500);
   }

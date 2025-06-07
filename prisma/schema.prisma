@@ -33,6 +33,6 @@ model Atividade {
   descricao    String
   criadoEm     DateTime   @default(now())
 
-  @@unique([cronogramaId, data, diaSemana])
+  @@unique([cronogramaId, data, diaSemana, descricao], name: "unique_activity_per_description")
   @@map("atividades")
 }

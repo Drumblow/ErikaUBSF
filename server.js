@@ -7,6 +7,7 @@ const healthHandler = require('./api/health');
 const cronogramasHandler = require('./api/cronogramas/index');
 const cronogramaByIdHandler = require('./api/cronogramas/[id]');
 const atividadesHandler = require('./api/cronogramas/[id]/atividades');
+const pdfHandler = require('./api/cronogramas/[id]/pdf');
 const atividadeByIdHandler = require('./api/atividades/[id]');
 
 const app = express();
@@ -16,6 +17,9 @@ const PORT = process.env.API_PORT || 3000;
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
+
+// Servir arquivos estáticos do diretório do template de PDF
+app.use(express.static(path.join(__dirname, 'CRONOGRAMA MES JUNHO')));
 
 // Middleware para logs
 app.use((req, res, next) => {
@@ -115,6 +119,17 @@ app.route('/api/cronogramas/:id/atividades')
       res.status(500).json({ success: false, message: 'Erro interno do servidor' });
     }
   });
+
+// Rota para gerar PDF
+app.post('/api/cronogramas/:id/pdf', async (req, res) => {
+  try {
+    const vercelReq = createVercelRequest(req, { id: req.params.id });
+    await pdfHandler(vercelReq, res);
+  } catch (error) {
+    console.error('Erro ao gerar PDF:', error);
+    res.status(500).json({ success: false, message: 'Erro interno do servidor' });
+  }
+});
 
 // Atividade por ID
 app.route('/api/atividades/:id')

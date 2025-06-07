@@ -141,7 +141,11 @@ temp/
 # Test files
 test-results/
 coverage/
-
+server-generated-test.pdf
+README.pdf
+debug.html
+cronograma-test.pdf
+BACKEND_PDF_REQUEST.md
 # Local development
 .local
 

@@ -8,6 +8,7 @@ const {
 const puppeteer = require('puppeteer');
 const fs = require('fs/promises');
 const path = require('path');
+const { readdirSync } = require('fs');
 
 // --- Funções Auxiliares ---
 const getMonthName = (month) => ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'][month - 1];
@@ -234,6 +235,21 @@ async function generateFullHtml(cronograma, tableBody) {
 
 // --- Handler da API ---
 module.exports = async (req, res) => {
+    // --- DEBUG: Listar arquivos no ambiente de produção ---
+    try {
+        const rootPath = path.resolve('/');
+        const taskPath = path.resolve('/var/task');
+        console.log('--- File System Debug ---');
+        console.log('Root "/" contents:', readdirSync(rootPath));
+        console.log('Task "/var/task" contents:', readdirSync(taskPath));
+         if (readdirSync(taskPath).includes('CRONOGRAMA MES JUNHO')) {
+            console.log('Images dir contents:', readdirSync(path.join(taskPath, 'CRONOGRAMA MES JUNHO', 'images')));
+        }
+    } catch (e) {
+        console.log('Error listing files for debugging:', e.message);
+    }
+    // --- FIM DEBUG ---
+
     if (corsHeaders(req, res)) return;
     if (req.method !== 'POST') return errorResponse(res, 'Método não permitido', 405);
 

@@ -1,0 +1,38 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Cronograma {
+  id           String      @id @default(cuid())
+  mes          Int         // 1-12
+  ano          Int
+  nomeUBSF     String?
+  enfermeiro   String?
+  medico       String?
+  atividades   Atividade[]
+  criadoEm     DateTime    @default(now())
+  atualizadoEm DateTime    @updatedAt
+
+  @@map("cronogramas")
+}
+
+model Atividade {
+  id           String     @id @default(cuid())
+  cronogramaId String
+  cronograma   Cronograma @relation(fields: [cronogramaId], references: [id], onDelete: Cascade)
+  data         DateTime
+  diaSemana    String
+  descricao    String
+  criadoEm     DateTime   @default(now())
+
+  @@unique([cronogramaId, data, diaSemana])
+  @@map("atividades")
+}

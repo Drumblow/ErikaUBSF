@@ -1,0 +1,13 @@
+# Vercel ignore file
+.env
+.env.local
+.env.*.local
+node_modules
+.git
+*.log
+.DS_Store
+.vscode
+.idea
+prisma/migrations
+*.md
+!README.md

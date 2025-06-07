@@ -1,0 +1,12 @@
+{
+  "functions": {
+    "api/**/*.js": {
+      "runtime": "nodejs18.x"
+    }
+  },
+  "env": {
+    "DATABASE_URL": "@database_url"
+  },
+  "regions": ["gru1"],
+  "buildCommand": "npx prisma generate"
+}

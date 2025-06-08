@@ -249,11 +249,9 @@ async function handlePdfGeneration(req, res) {
 
         if (!cronograma) return errorResponse(res, `Cronograma com ID '${id}' não foi encontrado.`, 404);
 
-        // --- Gerar o HTML dinamicamente ---
         const tableBody = generateCalendarBody(cronograma.ano, cronograma.mes, cronograma.atividades);
         const html = await generateFullHtml(cronograma, tableBody);
 
-        // --- Geração do PDF ---
         const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
         const page = await browser.newPage();
         
@@ -284,12 +282,12 @@ async function handlePdfGeneration(req, res) {
     }
 }
 
-// Exportar todas as funções necessárias
-module.exports = {
-    handlePdfGeneration,  // Handler principal para a API
-    generateCalendarBody, // Para testes
-    generateFullHtml,     // Para testes
-    getMonthName,        // Para testes
-    formatDate,          // Para testes
-    imageToBase64        // Para testes
-}; 
+// Export default para o Vercel
+module.exports = handlePdfGeneration;
+
+// Exportações adicionais para testes
+module.exports.generateCalendarBody = generateCalendarBody;
+module.exports.generateFullHtml = generateFullHtml;
+module.exports.getMonthName = getMonthName;
+module.exports.formatDate = formatDate;
+module.exports.imageToBase64 = imageToBase64; 

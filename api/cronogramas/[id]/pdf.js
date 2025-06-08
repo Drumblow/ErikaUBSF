@@ -1,14 +1,9 @@
-const { prisma } = require('../../../lib/database');
-const { 
-  successResponse, 
-  errorResponse, 
-  corsHeaders, 
-  isValidId 
-} = require('../../../lib/utils');
-const fs = require('fs/promises');
-const path = require('path');
-const { readdirSync } = require('fs');
-const puppeteer = require('puppeteer');
+const puppeteer = require('puppeteer-core');
+const chromium = require('@sparticuz/chromium');
+const { PrismaClient } = require('@prisma/client');
+const { generateCalendarHtml } = require('../../../lib/calendar');
+
+const prisma = new PrismaClient();
 
 // --- Funções Auxiliares ---
 const getMonthName = (month) => ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'][month - 1];
@@ -233,113 +228,89 @@ async function generateFullHtml(cronograma, tableBody) {
     `;
 }
 
-// Função para inicializar o browser
 async function initBrowser() {
-    console.log('🔄 Iniciando browser...');
-    
-    const options = {
-        headless: 'new',
-        args: [
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-dev-shm-usage',
-            '--disable-accelerated-2d-canvas',
-            '--no-first-run',
-            '--no-zygote',
-            '--disable-gpu'
-        ]
-    };
+  console.log('🔄 Iniciando browser...');
+  console.log('🔧 Configuração para Vercel');
 
-    // Se estivermos em produção (Vercel)
-    if (process.env.VERCEL) {
-        console.log('🔧 Configuração para Vercel');
-        options.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH || await puppeteer.executablePath();
-    }
-
-    return puppeteer.launch(options);
+  try {
+    const browser = await puppeteer.launch({
+      args: chromium.args,
+      defaultViewport: chromium.defaultViewport,
+      executablePath: await chromium.executablePath(),
+      headless: chromium.headless,
+      ignoreHTTPSErrors: true
+    });
+    return browser;
+  } catch (error) {
+    console.error('❌ Erro ao iniciar o browser:', error);
+    throw new Error(`Erro ao inicializar o Chrome: ${error.message}`);
+  }
 }
 
-// --- Handler da API ---
 async function handlePdfGeneration(req, res) {
-    if (corsHeaders(req, res)) return;
-    if (req.method !== 'POST') return errorResponse(res, 'Método não permitido', 405);
+  const { id } = req.query;
 
-    let browser = null;
+  try {
+    // Buscar cronograma e atividades
+    const cronograma = await prisma.cronograma.findUnique({
+      where: { id },
+      include: {
+        atividades: true
+      }
+    });
 
-    try {
-        const { id } = req.query;
-        if (!isValidId(id)) return errorResponse(res, 'ID do cronograma inválido', 400);
-
-        const cronograma = await prisma.cronograma.findUnique({
-            where: { id },
-            include: { atividades: { orderBy: { data: 'asc' } } },
-        });
-
-        if (!cronograma) return errorResponse(res, `Cronograma com ID '${id}' não foi encontrado.`, 404);
-
-        const tableBody = generateCalendarBody(cronograma.ano, cronograma.mes, cronograma.atividades);
-        const html = await generateFullHtml(cronograma, tableBody);
-
-        // Inicializar o browser com tratamento de erro melhorado
-        try {
-            browser = await initBrowser();
-            console.log('✅ Browser iniciado com sucesso');
-        } catch (error) {
-            console.error('❌ Erro ao iniciar o browser:', error);
-            throw new Error(`Erro ao inicializar o Chrome: ${error.message}`);
-        }
-
-        const page = await browser.newPage();
-        console.log('✅ Nova página criada');
-        
-        await page.setViewport({
-            width: 1366,
-            height: 768,
-            deviceScaleFactor: 1,
-        });
-        
-        await page.emulateMediaType('screen');
-        await page.setContent(html, { 
-            waitUntil: ['load', 'networkidle0'],
-            timeout: 30000 
-        });
-        console.log('✅ Conteúdo HTML carregado');
-
-        const pdfBuffer = await page.pdf({
-            format: 'A4',
-            landscape: true,
-            printBackground: true,
-            margin: { 
-                top: '20px', 
-                right: '20px', 
-                bottom: '20px', 
-                left: '20px' 
-            },
-            preferCSSPageSize: true,
-            timeout: 30000
-        });
-        console.log('✅ PDF gerado');
-        
-        const pdfBase64 = pdfBuffer.toString('base64');
-        return successResponse(res, { pdfBase64 }, "PDF gerado com sucesso.");
-
-    } catch (error) {
-        console.error('Erro ao gerar PDF:', error);
-        return errorResponse(res, `Erro ao gerar o PDF: ${error.message}`, 500);
-    } finally {
-        if (browser) {
-            try {
-                await browser.close();
-                console.log('✅ Browser fechado com sucesso');
-            } catch (error) {
-                console.error('❌ Erro ao fechar o browser:', error);
-            }
-        }
+    if (!cronograma) {
+      return res.status(404).json({
+        success: false,
+        message: 'Cronograma não encontrado'
+      });
     }
+
+    // Gerar HTML do calendário
+    const html = generateCalendarHtml(cronograma);
+
+    // Inicializar browser
+    const browser = await initBrowser();
+    const page = await browser.newPage();
+
+    // Configurar página
+    await page.setContent(html, {
+      waitUntil: ['domcontentloaded', 'networkidle0']
+    });
+
+    // Gerar PDF
+    const pdf = await page.pdf({
+      format: 'A4',
+      landscape: true,
+      printBackground: true,
+      margin: {
+        top: '20px',
+        right: '20px',
+        bottom: '20px',
+        left: '20px'
+      }
+    });
+
+    // Fechar browser
+    await browser.close();
+
+    // Enviar PDF
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=cronograma-${cronograma.mes}-${cronograma.ano}.pdf`);
+    res.send(pdf);
+
+  } catch (error) {
+    console.error('Erro ao gerar PDF:', error);
+    res.status(500).json({
+      success: false,
+      message: `Erro ao gerar PDF: ${error.message}`
+    });
+  }
 }
 
-// Export default para o Vercel
-module.exports = handlePdfGeneration;
+module.exports = {
+  handler: handlePdfGeneration
+};
 
 // Exportações adicionais para testes
 module.exports.generateCalendarBody = generateCalendarBody;

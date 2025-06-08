@@ -108,9 +108,9 @@ function generateCalendarBody(ano, mes, atividades) {
 // --- Nova Função para Gerar o HTML Completo ---
 async function generateFullHtml(cronograma, tableBody) {
     const monthName = getMonthName(cronograma.mes).toUpperCase();
-    const leftLogoPath = path.join(__dirname, '../../CRONOGRAMA MES JUNHO', 'images', 'image3.png');
-    const rightLogoPath = path.join(__dirname, '../../CRONOGRAMA MES JUNHO', 'images', 'image2.jpg');
-    const headerTitleImagePath = path.join(__dirname, '../../CRONOGRAMA MES JUNHO', 'images', 'image1.png');
+    const leftLogoPath = path.join(__dirname, '_assets', 'image3.png');
+    const rightLogoPath = path.join(__dirname, '_assets', 'image2.jpg');
+    const headerTitleImagePath = path.join(__dirname, '_assets', 'image1.png');
 
     const leftLogoBase64 = await imageToBase64(leftLogoPath);
     const rightLogoBase64 = await imageToBase64(rightLogoPath);

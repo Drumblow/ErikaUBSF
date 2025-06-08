@@ -5,10 +5,21 @@ const {
   corsHeaders, 
   isValidId 
 } = require('../../../lib/utils');
-const puppeteer = require('puppeteer');
 const fs = require('fs/promises');
 const path = require('path');
 const { readdirSync } = require('fs');
+
+// Configuração do Puppeteer baseada no ambiente
+let puppeteer;
+let chromium;
+if (process.env.AWS_LAMBDA_FUNCTION_VERSION) {
+    // Ambiente Vercel/Lambda
+    chromium = require('chrome-aws-lambda');
+    puppeteer = require('puppeteer-core');
+} else {
+    // Ambiente local
+    puppeteer = require('puppeteer');
+}
 
 // --- Funções Auxiliares ---
 const getMonthName = (month) => ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'][month - 1];
@@ -233,6 +244,26 @@ async function generateFullHtml(cronograma, tableBody) {
     `;
 }
 
+// Função para inicializar o browser baseado no ambiente
+async function initBrowser() {
+    if (process.env.AWS_LAMBDA_FUNCTION_VERSION) {
+        // Ambiente Vercel/Lambda
+        return puppeteer.launch({
+            args: chromium.args,
+            defaultViewport: chromium.defaultViewport,
+            executablePath: await chromium.executablePath,
+            headless: chromium.headless,
+            ignoreHTTPSErrors: true,
+        });
+    } else {
+        // Ambiente local
+        return puppeteer.launch({ 
+            headless: true,
+            args: ['--no-sandbox', '--disable-setuid-sandbox']
+        });
+    }
+}
+
 // --- Handler da API ---
 async function handlePdfGeneration(req, res) {
     if (corsHeaders(req, res)) return;
@@ -252,7 +283,8 @@ async function handlePdfGeneration(req, res) {
         const tableBody = generateCalendarBody(cronograma.ano, cronograma.mes, cronograma.atividades);
         const html = await generateFullHtml(cronograma, tableBody);
 
-        const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+        // Usar a função initBrowser para criar o browser
+        const browser = await initBrowser();
         const page = await browser.newPage();
         
         await page.emulateMediaType('screen');

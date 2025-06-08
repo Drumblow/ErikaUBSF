@@ -8,16 +8,7 @@ const {
 const fs = require('fs/promises');
 const path = require('path');
 const { readdirSync } = require('fs');
-
-// Importações específicas para cada ambiente
-let puppeteer;
-let chrome;
-if (process.env.NODE_ENV === 'development') {
-    puppeteer = require('puppeteer');
-} else {
-    chrome = require('chrome-aws-lambda');
-    puppeteer = require('puppeteer-core');
-}
+const puppeteer = require('puppeteer');
 
 // --- Funções Auxiliares ---
 const getMonthName = (month) => ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'][month - 1];
@@ -242,26 +233,30 @@ async function generateFullHtml(cronograma, tableBody) {
     `;
 }
 
-// Função para inicializar o browser com configurações específicas para o ambiente
+// Função para inicializar o browser
 async function initBrowser() {
-    console.log('🔄 Iniciando browser no ambiente:', process.env.NODE_ENV || 'production');
+    console.log('🔄 Iniciando browser...');
+    
+    const options = {
+        headless: 'new',
+        args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-accelerated-2d-canvas',
+            '--no-first-run',
+            '--no-zygote',
+            '--disable-gpu'
+        ]
+    };
 
-    if (process.env.NODE_ENV === 'development') {
-        console.log('🔧 Usando configuração de desenvolvimento');
-        return puppeteer.launch({
-            headless: true,
-            args: ['--no-sandbox', '--disable-setuid-sandbox']
-        });
+    // Se estivermos em produção (Vercel)
+    if (process.env.VERCEL) {
+        console.log('🔧 Configuração para Vercel');
+        options.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH || await puppeteer.executablePath();
     }
 
-    console.log('🔧 Usando configuração de produção (Vercel)');
-    return puppeteer.launch({
-        args: chrome.args,
-        executablePath: await chrome.executablePath,
-        headless: chrome.headless,
-        defaultViewport: chrome.defaultViewport,
-        ignoreHTTPSErrors: true
-    });
+    return puppeteer.launch(options);
 }
 
 // --- Handler da API ---

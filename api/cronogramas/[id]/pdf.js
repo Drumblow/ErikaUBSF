@@ -234,7 +234,7 @@ async function generateFullHtml(cronograma, tableBody) {
 }
 
 // --- Handler da API ---
-module.exports = async (req, res) => {
+async function handlePdfGeneration(req, res) {
     if (corsHeaders(req, res)) return;
     if (req.method !== 'POST') return errorResponse(res, 'Método não permitido', 405);
 
@@ -257,21 +257,24 @@ module.exports = async (req, res) => {
         const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
         const page = await browser.newPage();
         
-        // Emular media type de tela para garantir que os estilos sejam aplicados corretamente
         await page.emulateMediaType('screen');
-
-        // Usar page.setContent, que é ideal para strings de HTML
         await page.setContent(html, { waitUntil: 'load' });
 
         const pdfBuffer = await page.pdf({
             format: 'A4',
-            landscape: true, // Mudar para modo paisagem
+            landscape: true,
             printBackground: true,
-            margin: { top: '20px', right: '20px', bottom: '20px', left: '20px' },
-            preferCSSPageSize: true // Usa o tamanho da página definido no CSS se houver
+            margin: { 
+                top: '20px', 
+                right: '20px', 
+                bottom: '20px', 
+                left: '20px' 
+            },
+            preferCSSPageSize: true
         });
         
-        // --- RESPOSTA CONFORME ESPECIFICADO PARA O FRONTEND ---
+        await browser.close();
+        
         const pdfBase64 = pdfBuffer.toString('base64');
         return successResponse(res, { pdfBase64 }, "PDF gerado com sucesso.");
 
@@ -279,4 +282,14 @@ module.exports = async (req, res) => {
         console.error('Erro ao gerar PDF:', error);
         return errorResponse(res, 'Erro interno ao gerar o PDF.', 500);
     }
+}
+
+// Exportar todas as funções necessárias
+module.exports = {
+    handlePdfGeneration,  // Handler principal para a API
+    generateCalendarBody, // Para testes
+    generateFullHtml,     // Para testes
+    getMonthName,        // Para testes
+    formatDate,          // Para testes
+    imageToBase64        // Para testes
 }; 

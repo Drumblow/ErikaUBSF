@@ -10,8 +10,14 @@ const path = require('path');
 const { readdirSync } = require('fs');
 
 // Importações específicas para cada ambiente
-const chrome = require('chrome-aws-lambda');
-const puppeteer = require('puppeteer-core');
+let puppeteer;
+let chrome;
+if (process.env.NODE_ENV === 'development') {
+    puppeteer = require('puppeteer');
+} else {
+    chrome = require('chrome-aws-lambda');
+    puppeteer = require('puppeteer-core');
+}
 
 // --- Funções Auxiliares ---
 const getMonthName = (month) => ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'][month - 1];
@@ -236,26 +242,26 @@ async function generateFullHtml(cronograma, tableBody) {
     `;
 }
 
-// Função para inicializar o browser com configurações específicas para o Vercel
+// Função para inicializar o browser com configurações específicas para o ambiente
 async function initBrowser() {
-    const executablePath = await chrome.executablePath;
+    console.log('🔄 Iniciando browser no ambiente:', process.env.NODE_ENV || 'production');
 
-    const options = {
-        args: [...chrome.args, '--hide-scrollbars', '--disable-web-security'],
-        defaultViewport: chrome.defaultViewport,
-        executablePath: executablePath || process.env.CHROME_PATH || null,
-        headless: true,
-        ignoreHTTPSErrors: true,
-    };
-
-    // Se estiver em desenvolvimento local
     if (process.env.NODE_ENV === 'development') {
-        options.args = ['--no-sandbox', '--disable-setuid-sandbox'];
-        delete options.executablePath;
-        return require('puppeteer').launch(options);
+        console.log('🔧 Usando configuração de desenvolvimento');
+        return puppeteer.launch({
+            headless: true,
+            args: ['--no-sandbox', '--disable-setuid-sandbox']
+        });
     }
 
-    return puppeteer.launch(options);
+    console.log('🔧 Usando configuração de produção (Vercel)');
+    return puppeteer.launch({
+        args: chrome.args,
+        executablePath: await chrome.executablePath,
+        headless: chrome.headless,
+        defaultViewport: chrome.defaultViewport,
+        ignoreHTTPSErrors: true
+    });
 }
 
 // --- Handler da API ---
@@ -290,6 +296,12 @@ async function handlePdfGeneration(req, res) {
 
         const page = await browser.newPage();
         console.log('✅ Nova página criada');
+        
+        await page.setViewport({
+            width: 1366,
+            height: 768,
+            deviceScaleFactor: 1,
+        });
         
         await page.emulateMediaType('screen');
         await page.setContent(html, { 

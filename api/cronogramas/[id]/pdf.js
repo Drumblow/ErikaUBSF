@@ -9,17 +9,9 @@ const fs = require('fs/promises');
 const path = require('path');
 const { readdirSync } = require('fs');
 
-// Configuração do Puppeteer baseada no ambiente
-let puppeteer;
-let chromium;
-if (process.env.AWS_LAMBDA_FUNCTION_VERSION) {
-    // Ambiente Vercel/Lambda
-    chromium = require('chrome-aws-lambda');
-    puppeteer = require('puppeteer-core');
-} else {
-    // Ambiente local
-    puppeteer = require('puppeteer');
-}
+// Importações específicas para cada ambiente
+const chrome = require('chrome-aws-lambda');
+const puppeteer = require('puppeteer-core');
 
 // --- Funções Auxiliares ---
 const getMonthName = (month) => ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'][month - 1];
@@ -244,30 +236,34 @@ async function generateFullHtml(cronograma, tableBody) {
     `;
 }
 
-// Função para inicializar o browser baseado no ambiente
+// Função para inicializar o browser com configurações específicas para o Vercel
 async function initBrowser() {
-    if (process.env.AWS_LAMBDA_FUNCTION_VERSION) {
-        // Ambiente Vercel/Lambda
-        return puppeteer.launch({
-            args: chromium.args,
-            defaultViewport: chromium.defaultViewport,
-            executablePath: await chromium.executablePath,
-            headless: chromium.headless,
-            ignoreHTTPSErrors: true,
-        });
-    } else {
-        // Ambiente local
-        return puppeteer.launch({ 
-            headless: true,
-            args: ['--no-sandbox', '--disable-setuid-sandbox']
-        });
+    const executablePath = await chrome.executablePath;
+
+    const options = {
+        args: [...chrome.args, '--hide-scrollbars', '--disable-web-security'],
+        defaultViewport: chrome.defaultViewport,
+        executablePath: executablePath || process.env.CHROME_PATH || null,
+        headless: true,
+        ignoreHTTPSErrors: true,
+    };
+
+    // Se estiver em desenvolvimento local
+    if (process.env.NODE_ENV === 'development') {
+        options.args = ['--no-sandbox', '--disable-setuid-sandbox'];
+        delete options.executablePath;
+        return require('puppeteer').launch(options);
     }
+
+    return puppeteer.launch(options);
 }
 
 // --- Handler da API ---
 async function handlePdfGeneration(req, res) {
     if (corsHeaders(req, res)) return;
     if (req.method !== 'POST') return errorResponse(res, 'Método não permitido', 405);
+
+    let browser = null;
 
     try {
         const { id } = req.query;
@@ -283,12 +279,24 @@ async function handlePdfGeneration(req, res) {
         const tableBody = generateCalendarBody(cronograma.ano, cronograma.mes, cronograma.atividades);
         const html = await generateFullHtml(cronograma, tableBody);
 
-        // Usar a função initBrowser para criar o browser
-        const browser = await initBrowser();
+        // Inicializar o browser com tratamento de erro melhorado
+        try {
+            browser = await initBrowser();
+            console.log('✅ Browser iniciado com sucesso');
+        } catch (error) {
+            console.error('❌ Erro ao iniciar o browser:', error);
+            throw new Error(`Erro ao inicializar o Chrome: ${error.message}`);
+        }
+
         const page = await browser.newPage();
+        console.log('✅ Nova página criada');
         
         await page.emulateMediaType('screen');
-        await page.setContent(html, { waitUntil: 'load' });
+        await page.setContent(html, { 
+            waitUntil: ['load', 'networkidle0'],
+            timeout: 30000 
+        });
+        console.log('✅ Conteúdo HTML carregado');
 
         const pdfBuffer = await page.pdf({
             format: 'A4',
@@ -300,17 +308,26 @@ async function handlePdfGeneration(req, res) {
                 bottom: '20px', 
                 left: '20px' 
             },
-            preferCSSPageSize: true
+            preferCSSPageSize: true,
+            timeout: 30000
         });
-        
-        await browser.close();
+        console.log('✅ PDF gerado');
         
         const pdfBase64 = pdfBuffer.toString('base64');
         return successResponse(res, { pdfBase64 }, "PDF gerado com sucesso.");
 
     } catch (error) {
         console.error('Erro ao gerar PDF:', error);
-        return errorResponse(res, 'Erro interno ao gerar o PDF.', 500);
+        return errorResponse(res, `Erro ao gerar o PDF: ${error.message}`, 500);
+    } finally {
+        if (browser) {
+            try {
+                await browser.close();
+                console.log('✅ Browser fechado com sucesso');
+            } catch (error) {
+                console.error('❌ Erro ao fechar o browser:', error);
+            }
+        }
     }
 }
 

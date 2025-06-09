@@ -370,7 +370,9 @@ async function initBrowser() {
     const browser = await puppeteer.launch({
       args: chromium.args,
       defaultViewport: chromium.defaultViewport,
-      executablePath: await chromium.executablePath(),
+      executablePath: await chromium.executablePath({
+        url: 'https://github.com/sparticuz/chromium/releases/download/v126.0.0/chromium-v126.0.0-pack.tar.br'
+      }),
       headless: chromium.headless,
       ignoreHTTPSErrors: true
     });

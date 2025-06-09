@@ -1,33 +1,29 @@
 const { PrismaClient } = require('@prisma/client');
-const puppeteer = require('puppeteer');
+const puppeteer = require('puppeteer-core');
+const chromium = require('@sparticuz/chromium');
 const path = require('path');
 const fs = require('fs').promises;
 
-// Importa as funções do arquivo pdf.js
-const { 
-  generateCalendarBody, 
-  generateFullHtml,
-  getMonthName 
-} = require('../api/cronogramas/[id]/pdf.js');
+// Importa as funções do arquivo pdf.js da API
+const { generateCalendarBody, generateFullHtml } = require('../api/cronogramas/[id]/pdf.js');
 
 // Inicializa o cliente Prisma
 const prisma = new PrismaClient();
+
+const cronogramaId = 'cmbo4ow1r00003cjkldne13s3'; // ID do cronograma de Junho/2025
 
 async function testPDFGeneration() {
   try {
     console.log('🚀 Iniciando teste de geração de PDF...');
 
-    // 1. Buscar um cronograma existente
-    const cronograma = await prisma.cronograma.findFirst({
-      include: {
-        atividades: {
-          orderBy: { data: 'asc' }
-        }
-      }
+    // Buscar o cronograma do banco de dados
+    const cronograma = await prisma.cronograma.findUnique({
+      where: { id: cronogramaId },
+      include: { atividades: true }
     });
 
     if (!cronograma) {
-      throw new Error('❌ Nenhum cronograma encontrado no banco de dados');
+      throw new Error(`Cronograma com ID ${cronogramaId} não encontrado`);
     }
 
     console.log('✅ Cronograma encontrado:', cronograma.id);
@@ -35,46 +31,35 @@ async function testPDFGeneration() {
     console.log(`📝 Atividades: ${cronograma.atividades.length}`);
     console.log(`🏥 UBSF: ${cronograma.nomeUBSF || 'N/A'}`);
 
-    // 2. Verificar se as imagens existem
-    const assetsPath = path.join(__dirname, '../api/cronogramas/[id]/_assets');
-    const requiredImages = ['image1.png', 'image2.jpg', 'image3.png'];
-    
-    for (const image of requiredImages) {
-      const imagePath = path.join(assetsPath, image);
-      try {
-        await fs.access(imagePath);
-        console.log(`✅ Imagem encontrada: ${image}`);
-      } catch (error) {
-        throw new Error(`❌ Imagem não encontrada: ${image} (procurada em ${imagePath})`);
-      }
-    }
+    // 2. Gerar HTML
+    console.log('🔄 Gerando HTML...');
+    const { tableBodyHtml, weekCount } = generateCalendarBody(cronograma.ano, cronograma.mes, cronograma.atividades);
+    const html = await generateFullHtml(cronograma, tableBodyHtml, weekCount);
+    console.log('✅ HTML gerado');
 
-    // 3. Gerar o corpo da tabela
-    console.log('🔄 Gerando corpo da tabela...');
-    const tableBody = generateCalendarBody(cronograma.ano, cronograma.mes, cronograma.atividades);
-    console.log('✅ Corpo da tabela gerado');
-
-    // 4. Gerar HTML completo
-    console.log('🔄 Gerando HTML completo...');
-    const html = await generateFullHtml(cronograma, tableBody);
-    console.log('✅ HTML completo gerado');
-
-    // 5. Salvar HTML temporário para debug
+    // 3. Salvar HTML temporário para debug
     const tempHtmlPath = path.join(__dirname, 'temp.html');
     await fs.writeFile(tempHtmlPath, html);
     console.log(`✅ HTML salvo em: ${tempHtmlPath}`);
 
-    // 6. Iniciar Puppeteer e gerar PDF
+    // 4. Iniciar Puppeteer e gerar PDF
     console.log('🔄 Iniciando Puppeteer...');
-    const browser = await puppeteer.launch({ 
+    const browser = await puppeteer.launch({
+      args: chromium.args,
+      defaultViewport: chromium.defaultViewport,
+      executablePath: process.env.CHROME_PATH || (process.platform === 'win32' 
+        ? 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
+        : '/usr/bin/google-chrome'),
       headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
+      ignoreHTTPSErrors: true
     });
+    
     const page = await browser.newPage();
     
     // Configurar página
-    await page.emulateMediaType('screen');
-    await page.setContent(html, { waitUntil: 'load' });
+    await page.setContent(html, { 
+      waitUntil: ['domcontentloaded', 'networkidle0']
+    });
 
     // Gerar PDF
     console.log('🔄 Gerando PDF...');
@@ -87,27 +72,21 @@ async function testPDFGeneration() {
         right: '20px', 
         bottom: '20px', 
         left: '20px' 
-      },
-      preferCSSPageSize: true
+      }
     });
 
     await browser.close();
     console.log('✅ PDF gerado com sucesso');
 
-    // 7. Salvar PDF para verificação
+    // 5. Salvar PDF para verificação
     const outputPath = path.join(__dirname, 'output.pdf');
     await fs.writeFile(outputPath, pdfBuffer);
     console.log(`✅ PDF salvo em: ${outputPath}`);
-
-    // 8. Converter para base64 (como na API)
-    const pdfBase64 = pdfBuffer.toString('base64');
-    console.log('✅ PDF convertido para base64');
 
     return {
       success: true,
       message: 'PDF gerado com sucesso',
       data: {
-        pdfBase64,
         cronogramaId: cronograma.id,
         mes: cronograma.mes,
         ano: cronograma.ano,

@@ -2,8 +2,7 @@
   "version": 2,
   "functions": {
     "api/**/*.js": {
-      "runtime": "@vercel/node@3.0.12",
-      "maxDuration": 60
+      "runtime": "@vercel/node@3.0.12"
     }
   },
   "regions": ["gru1"],

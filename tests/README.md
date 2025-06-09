@@ -4,12 +4,13 @@ Este diretório contém testes para a funcionalidade de geração de PDF do Cron
 
 ## Pré-requisitos
 
-1. Node.js instalado (v18+)
+1. Node.js instalado (v20.x)
 2. Banco de dados PostgreSQL configurado (via Neon)
 3. Variáveis de ambiente configuradas no `.env`
-4. Dependências instaladas:
+4. Chrome instalado localmente (para testes locais)
+5. Dependências instaladas:
    ```bash
-   npm install puppeteer @prisma/client
+   npm install
    ```
 
 ## Como Executar o Teste
@@ -31,12 +32,10 @@ Este diretório contém testes para a funcionalidade de geração de PDF do Cron
 O teste `pdf.test.js` executa os seguintes passos:
 
 1. Busca um cronograma no banco de dados
-2. Gera o corpo da tabela do calendário
-3. Gera o HTML completo com cabeçalho e estilos
-4. Salva o HTML para debug
-5. Converte para PDF usando Puppeteer
-6. Salva o PDF para verificação
-7. Converte o PDF para base64
+2. Gera o HTML do calendário usando a função `generateCalendarHtml`
+3. Salva o HTML para debug
+4. Converte para PDF usando Puppeteer
+5. Salva o PDF para verificação
 
 ## Troubleshooting
 
@@ -44,12 +43,11 @@ Se o teste falhar, verifique:
 
 1. Se o banco de dados está acessível (variável DATABASE_URL)
 2. Se existe pelo menos um cronograma no banco
-3. Se as imagens existem em `api/cronogramas/[id]/_assets/`:
-   - `image1.png`
-   - `image2.jpg`
-   - `image3.png`
+3. Se o Chrome está instalado no caminho padrão:
+   - Windows: `C:\Program Files\Google\Chrome\Application\chrome.exe`
+   - Linux: `/usr/bin/google-chrome`
 4. Se todas as dependências estão instaladas
-5. Se o Puppeteer consegue executar no seu ambiente
+5. Se a variável CHROME_PATH está configurada (opcional)
 
 ## Estrutura do PDF Gerado
 
@@ -101,14 +99,11 @@ O teste gera logs detalhados no console:
 ✅ Cronograma encontrado: [ID]
 📅 Mês/Ano: [MES]/[ANO]
 📝 Atividades: [QUANTIDADE]
-🔄 Gerando corpo da tabela...
-✅ Corpo da tabela gerado
-🔄 Gerando HTML completo...
-✅ HTML completo gerado
+🔄 Gerando HTML...
+✅ HTML gerado
 ✅ HTML salvo em: [CAMINHO]
 🔄 Iniciando Puppeteer...
 🔄 Gerando PDF...
 ✅ PDF gerado com sucesso
 ✅ PDF salvo em: [CAMINHO]
-✅ PDF convertido para base64
 ``` 

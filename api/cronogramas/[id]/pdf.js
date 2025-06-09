@@ -371,7 +371,7 @@ async function initBrowser() {
       args: chromium.args,
       defaultViewport: chromium.defaultViewport,
       executablePath: await chromium.executablePath(),
-      headless: chromium.headless,
+      headless: 'shell',
       ignoreHTTPSErrors: true
     });
     return browser;

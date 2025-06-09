@@ -16,7 +16,6 @@
     "db:seed": "node prisma/seed.js",
     "test": "echo \"No tests specified\" && exit 0",
     "test:pdf": "cross-env NODE_ENV=development node tests/pdf.test.js",
-    "postinstall": "npx puppeteer browsers install chrome",
     "seed:maio2025": "node scripts/seed-maio-2025.js",
     "seed:junho2025": "node scripts/seed-junho-2025.js"
   },
@@ -46,6 +45,6 @@
     "cross-env": "^7.0.3"
   },
   "engines": {
-    "node": "20.x"
+    "node": "18.x"
   }
 }

@@ -443,11 +443,9 @@ async function handlePdfGeneration(req, res) {
   }
 }
 
-module.exports = {
-  handler: handlePdfGeneration
-};
-
-// Exportações adicionais para testes
+// Para o Vercel, a exportação padrão deve ser a função manipuladora.
+// As outras funções são anexadas como propriedades para que os testes possam importá-las.
+module.exports = handlePdfGeneration;
 module.exports.generateCalendarBody = generateCalendarBody;
 module.exports.generateFullHtml = generateFullHtml;
 module.exports.getMonthName = getMonthName;

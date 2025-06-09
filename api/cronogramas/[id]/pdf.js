@@ -370,8 +370,8 @@ async function initBrowser() {
     const browser = await puppeteer.launch({
       args: chromium.args,
       defaultViewport: chromium.defaultViewport,
-      executablePath: await chromium.executablePath({ headless: 'shell' }),
-      headless: 'shell',
+      executablePath: await chromium.executablePath(),
+      headless: chromium.headless,
       ignoreHTTPSErrors: true
     });
     return browser;

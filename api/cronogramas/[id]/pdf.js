@@ -6,6 +6,7 @@ const { format } = require('date-fns');
 const { ptBR } = require('date-fns/locale');
 const fs = require('fs').promises;
 const path = require('path');
+const axios = require('axios');
 
 const prisma = new PrismaClient();
 
@@ -362,23 +363,25 @@ async function generateFullHtml(cronograma, tableBody, weekCount) {
     `;
 }
 
-async function initBrowser() {
-  console.log('🔄 Iniciando browser...');
-  console.log('🔧 Configuração para Vercel');
-
-  try {
-    const browser = await puppeteer.launch({
-      args: chromium.args,
-      defaultViewport: chromium.defaultViewport,
-      executablePath: await chromium.executablePath(),
-      headless: 'shell',
-      ignoreHTTPSErrors: true
-    });
-    return browser;
-  } catch (error) {
-    console.error('❌ Erro ao iniciar o browser:', error);
-    throw new Error(`Erro ao inicializar o Chrome: ${error.message}`);
-  }
+// --- Função para gerar PDF via PDFShift ---
+async function gerarPdfViaPdfShift(html) {
+  const apiKey = 'sk_d7fe681e6b5b8272908538596da2d8356bd5a898';
+  const response = await axios.post(
+    'https://api.pdfshift.io/v3/convert/pdf',
+    {
+      source: html,
+      landscape: true,
+      use_print: true
+    },
+    {
+      headers: {
+        'X-API-Key': apiKey,
+        'Content-Type': 'application/json'
+      },
+      responseType: 'arraybuffer'
+    }
+  );
+  return response.data; // Buffer do PDF
 }
 
 async function handlePdfGeneration(req, res) {
@@ -396,7 +399,9 @@ async function handlePdfGeneration(req, res) {
     if (!cronograma) {
       return res.status(404).json({
         success: false,
-        message: 'Cronograma não encontrado'
+        message: 'Cronograma não encontrado',
+        data: null,
+        timestamp: new Date().toISOString()
       });
     }
 
@@ -404,41 +409,24 @@ async function handlePdfGeneration(req, res) {
     const { tableBodyHtml, weekCount } = generateCalendarBody(cronograma.ano, cronograma.mes, cronograma.atividades);
     const html = await generateFullHtml(cronograma, tableBodyHtml, weekCount);
 
-    // Inicializar browser
-    const browser = await initBrowser();
-    const page = await browser.newPage();
+    // Gerar PDF via PDFShift
+    const pdfBuffer = await gerarPdfViaPdfShift(html);
+    const pdfBase64 = Buffer.from(pdfBuffer).toString('base64');
 
-    // Configurar página
-    await page.setContent(html, {
-      waitUntil: ['domcontentloaded', 'networkidle0']
+    // Retornar resposta conforme especificação
+    res.status(200).json({
+      success: true,
+      message: 'PDF gerado com sucesso.',
+      data: { pdfBase64 },
+      timestamp: new Date().toISOString()
     });
-
-    // Gerar PDF
-    const pdf = await page.pdf({
-      format: 'A4',
-      landscape: true,
-      printBackground: true,
-      margin: {
-        top: '20px',
-        right: '20px',
-        bottom: '20px',
-        left: '20px'
-      }
-    });
-
-    // Fechar browser
-    await browser.close();
-
-    // Enviar PDF
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=cronograma-${cronograma.mes}-${cronograma.ano}.pdf`);
-    res.send(pdf);
-
   } catch (error) {
     console.error('Erro ao gerar PDF:', error);
     res.status(500).json({
       success: false,
-      message: `Erro ao gerar PDF: ${error.message}`
+      message: `Erro ao gerar PDF: ${error.message}`,
+      data: null,
+      timestamp: new Date().toISOString()
     });
   }
 }

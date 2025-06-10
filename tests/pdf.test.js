@@ -3,6 +3,7 @@ const puppeteer = require('puppeteer-core');
 const chromium = require('@sparticuz/chromium');
 const path = require('path');
 const fs = require('fs').promises;
+const axios = require('axios');
 
 // Importa as funções do arquivo pdf.js da API
 const { generateCalendarBody, generateFullHtml } = require('../api/cronogramas/[id]/pdf.js');
@@ -31,54 +32,17 @@ async function testPDFGeneration() {
     console.log(`📝 Atividades: ${cronograma.atividades.length}`);
     console.log(`🏥 UBSF: ${cronograma.nomeUBSF || 'N/A'}`);
 
-    // 2. Gerar HTML
-    console.log('🔄 Gerando HTML...');
-    const { tableBodyHtml, weekCount } = generateCalendarBody(cronograma.ano, cronograma.mes, cronograma.atividades);
-    const html = await generateFullHtml(cronograma, tableBodyHtml, weekCount);
-    console.log('✅ HTML gerado');
+    // 2. Chamar a API para gerar o PDF
+    const API_URL = 'http://localhost:3000';
+    console.log('🔄 Chamando API para gerar PDF...');
+    const response = await axios.post(`${API_URL}/api/cronogramas/${cronogramaId}/pdf`);
+    if (!response.data.success) {
+      throw new Error(`Erro na API: ${response.data.message}`);
+    }
+    const pdfBase64 = response.data.data.pdfBase64;
+    const pdfBuffer = Buffer.from(pdfBase64, 'base64');
 
-    // 3. Salvar HTML temporário para debug
-    const tempHtmlPath = path.join(__dirname, 'temp.html');
-    await fs.writeFile(tempHtmlPath, html);
-    console.log(`✅ HTML salvo em: ${tempHtmlPath}`);
-
-    // 4. Iniciar Puppeteer e gerar PDF
-    console.log('🔄 Iniciando Puppeteer...');
-    const browser = await puppeteer.launch({
-      args: chromium.args,
-      defaultViewport: chromium.defaultViewport,
-      executablePath: process.env.CHROME_PATH || (process.platform === 'win32' 
-        ? 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
-        : '/usr/bin/google-chrome'),
-      headless: true,
-      ignoreHTTPSErrors: true
-    });
-    
-    const page = await browser.newPage();
-    
-    // Configurar página
-    await page.setContent(html, { 
-      waitUntil: ['domcontentloaded', 'networkidle0']
-    });
-
-    // Gerar PDF
-    console.log('🔄 Gerando PDF...');
-    const pdfBuffer = await page.pdf({
-      format: 'A4',
-      landscape: true,
-      printBackground: true,
-      margin: { 
-        top: '20px', 
-        right: '20px', 
-        bottom: '20px', 
-        left: '20px' 
-      }
-    });
-
-    await browser.close();
-    console.log('✅ PDF gerado com sucesso');
-
-    // 5. Salvar PDF para verificação
+    // 3. Salvar PDF para verificação
     const outputPath = path.join(__dirname, 'output.pdf');
     await fs.writeFile(outputPath, pdfBuffer);
     console.log(`✅ PDF salvo em: ${outputPath}`);

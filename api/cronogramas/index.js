@@ -7,20 +7,24 @@ const {
   validateData, 
   handlePrismaError 
 } = require('../../lib/utils');
+const { verificarAuth } = require('../utils/auth');
 
 module.exports = async (req, res) => {
   // Configurar CORS
   if (corsHeaders(req, res)) return;
 
   try {
-    switch (req.method) {
-      case 'GET':
-        return await getCronogramas(req, res);
-      case 'POST':
-        return await createCronograma(req, res);
-      default:
-        return errorResponse(res, 'Método não permitido', 405);
-    }
+    // Verificar autenticação para todas as rotas
+    await verificarAuth(req, res, async () => {
+      switch (req.method) {
+        case 'GET':
+          return await getCronogramas(req, res);
+        case 'POST':
+          return await createCronograma(req, res);
+        default:
+          return errorResponse(res, 'Método não permitido', 405);
+      }
+    });
   } catch (error) {
     console.error('Erro na API de cronogramas:', error);
     return errorResponse(res, 'Erro interno do servidor', 500);
@@ -36,7 +40,9 @@ async function getCronogramas(req, res) {
     const take = parseInt(limit);
     
     // Construir filtros
-    const where = {};
+    const where = {
+      usuarioId: req.usuario.id // Filtrar apenas cronogramas do usuário
+    };
     if (mes) where.mes = parseInt(mes);
     if (ano) where.ano = parseInt(ano);
     
@@ -85,11 +91,12 @@ async function createCronograma(req, res) {
     // Validar dados de entrada
     const validatedData = validateData(req.body, schemas.cronograma);
     
-    // Verificar se já existe cronograma para o mesmo mês/ano
+    // Verificar se já existe cronograma para o mesmo mês/ano do usuário
     const existingCronograma = await prisma.cronograma.findFirst({
       where: {
         mes: validatedData.mes,
-        ano: validatedData.ano
+        ano: validatedData.ano,
+        usuarioId: req.usuario.id
       }
     });
     
@@ -100,6 +107,9 @@ async function createCronograma(req, res) {
         400
       );
     }
+    
+    // Adicionar usuarioId aos dados
+    validatedData.usuarioId = req.usuario.id;
     
     // Criar cronograma
     const cronograma = await prisma.cronograma.create({

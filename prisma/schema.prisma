@@ -10,6 +10,19 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model Usuario {
+  id           String      @id @default(cuid())
+  email        String      @unique
+  nome         String
+  senha        String      // Será armazenada com hash
+  cargo        String      // ex: "enfermeiro", "medico", "admin"
+  cronogramas  Cronograma[]
+  criadoEm     DateTime    @default(now())
+  atualizadoEm DateTime    @updatedAt
+
+  @@map("usuarios")
+}
+
 model Cronograma {
   id           String      @id @default(cuid())
   mes          Int         // 1-12
@@ -17,6 +30,8 @@ model Cronograma {
   nomeUBSF     String?
   enfermeiro   String?
   medico       String?
+  usuarioId    String
+  usuario      Usuario     @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
   atividades   Atividade[]
   criadoEm     DateTime    @default(now())
   atualizadoEm DateTime    @updatedAt

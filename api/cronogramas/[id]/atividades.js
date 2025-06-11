@@ -8,6 +8,7 @@ const {
   handlePrismaError,
   isValidId 
 } = require('../../../lib/utils');
+const { verificarAuth } = require('../../utils/auth');
 
 module.exports = async (req, res) => {
   // Configurar CORS
@@ -21,14 +22,17 @@ module.exports = async (req, res) => {
       return errorResponse(res, 'ID do cronograma inválido', 400);
     }
 
-    switch (req.method) {
-      case 'GET':
-        return await getAtividades(req, res, id);
-      case 'POST':
-        return await createAtividade(req, res, id);
-      default:
-        return errorResponse(res, 'Método não permitido', 405);
-    }
+    // Verificar autenticação para todas as rotas
+    await verificarAuth(req, res, async () => {
+      switch (req.method) {
+        case 'GET':
+          return await getAtividades(req, res, id);
+        case 'POST':
+          return await createAtividade(req, res, id);
+        default:
+          return errorResponse(res, 'Método não permitido', 405);
+      }
+    });
   } catch (error) {
     console.error('Erro na API de atividades:', error);
     return errorResponse(res, 'Erro interno do servidor', 500);
@@ -38,9 +42,12 @@ module.exports = async (req, res) => {
 // GET /api/cronogramas/[id]/atividades - Listar atividades do cronograma
 async function getAtividades(req, res, cronogramaId) {
   try {
-    // Verificar se cronograma existe
-    const cronograma = await prisma.cronograma.findUnique({
-      where: { id: cronogramaId }
+    // Verificar se cronograma existe e pertence ao usuário
+    const cronograma = await prisma.cronograma.findFirst({
+      where: { 
+        id: cronogramaId,
+        usuarioId: req.usuario.id
+      }
     });
     
     if (!cronograma) {
@@ -107,9 +114,12 @@ async function getAtividades(req, res, cronogramaId) {
 // POST /api/cronogramas/[id]/atividades - Criar nova atividade
 async function createAtividade(req, res, cronogramaId) {
   try {
-    // Verificar se cronograma existe
-    const cronograma = await prisma.cronograma.findUnique({
-      where: { id: cronogramaId },
+    // Verificar se cronograma existe e pertence ao usuário
+    const cronograma = await prisma.cronograma.findFirst({
+      where: { 
+        id: cronogramaId,
+        usuarioId: req.usuario.id
+      }
     });
 
     if (!cronograma) {

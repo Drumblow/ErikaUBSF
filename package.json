@@ -14,7 +14,8 @@
     "db:studio": "npx prisma studio",
     "db:push": "npx prisma db push",
     "db:seed": "node prisma/seed.js",
-    "test": "echo \"No tests specified\" && exit 0",
+    "test": "jest",
+    "test:watch": "jest --watch",
     "test:pdf": "cross-env NODE_ENV=development node tests/pdf.test.js",
     "seed:maio2025": "node scripts/seed-maio-2025.js",
     "seed:junho2025": "node scripts/seed-junho-2025.js"
@@ -32,18 +33,24 @@
   "dependencies": {
     "@prisma/client": "^5.7.1",
     "@sparticuz/chromium": "^123.0.0",
+    "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "date-fns": "^4.1.0",
     "express": "^4.18.2",
     "joi": "^17.11.0",
+    "jsonwebtoken": "^9.0.2",
     "prisma": "^5.7.1",
     "puppeteer-core": "^22.0.0",
     "axios": "^1.6.0"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",
+    "@types/jest": "^29.5.11",
+    "@types/supertest": "^6.0.2",
     "@vercel/node": "^3.0.12",
-    "cross-env": "^7.0.3"
+    "cross-env": "^7.0.3",
+    "jest": "^29.7.0",
+    "supertest": "^6.3.3"
   },
   "engines": {
     "node": "18.x"

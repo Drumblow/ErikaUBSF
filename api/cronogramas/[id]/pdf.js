@@ -7,6 +7,8 @@ const { ptBR } = require('date-fns/locale');
 const fs = require('fs').promises;
 const path = require('path');
 const axios = require('axios');
+const { verificarAuth } = require('../../utils/auth');
+const { errorResponse } = require('../../../lib/utils');
 
 const prisma = new PrismaClient();
 
@@ -384,7 +386,7 @@ async function gerarPdfViaPdfShift(html) {
   return response.data; // Buffer do PDF
 }
 
-async function handlePdfGeneration(req, res) {
+async function handlePdfGeneration(req, res, cronograma) {
   // Habilita CORS para qualquer origem
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
@@ -396,26 +398,7 @@ async function handlePdfGeneration(req, res) {
     return;
   }
 
-  const { id } = req.query;
-
   try {
-    // Buscar cronograma e atividades
-    const cronograma = await prisma.cronograma.findUnique({
-      where: { id },
-      include: {
-        atividades: true
-      }
-    });
-
-    if (!cronograma) {
-      return res.status(404).json({
-        success: false,
-        message: 'Cronograma não encontrado',
-        data: null,
-        timestamp: new Date().toISOString()
-      });
-    }
-
     // Gerar HTML do calendário
     const { tableBodyHtml, weekCount } = generateCalendarBody(cronograma.ano, cronograma.mes, cronograma.atividades);
     const html = await generateFullHtml(cronograma, tableBodyHtml, weekCount);
@@ -442,9 +425,40 @@ async function handlePdfGeneration(req, res) {
   }
 }
 
-// Para o Vercel, a exportação padrão deve ser a função manipuladora.
-// As outras funções são anexadas como propriedades para que os testes possam importá-las.
-module.exports = handlePdfGeneration;
+// Função principal de manipulação da requisição
+module.exports = async (req, res) => {
+  try {
+    const { id } = req.query;
+
+    // Verificar autenticação
+    await verificarAuth(req, res, async () => {
+      // Verificar se o cronograma existe e pertence ao usuário
+      const cronograma = await prisma.cronograma.findFirst({
+        where: {
+          id,
+          usuarioId: req.usuario.id
+        },
+        include: {
+          atividades: {
+            orderBy: {
+              data: 'asc'
+            }
+          }
+        }
+      });
+
+      if (!cronograma) {
+        return errorResponse(res, 'Cronograma não encontrado', 404);
+      }
+
+      return await handlePdfGeneration(req, res, cronograma);
+    });
+  } catch (error) {
+    console.error('Erro ao gerar PDF:', error);
+    return errorResponse(res, 'Erro ao gerar PDF', 500);
+  }
+};
+
 module.exports.generateCalendarBody = generateCalendarBody;
 module.exports.generateFullHtml = generateFullHtml;
 module.exports.getMonthName = getMonthName;

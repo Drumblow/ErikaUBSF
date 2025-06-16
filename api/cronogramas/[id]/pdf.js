@@ -1,7 +1,4 @@
-const puppeteer = require('puppeteer-core');
-const chromium = require('@sparticuz/chromium');
 const { PrismaClient } = require('@prisma/client');
-const { generateCalendarHtml } = require('../../../lib/calendar');
 const { format } = require('date-fns');
 const { ptBR } = require('date-fns/locale');
 const fs = require('fs').promises;
@@ -11,6 +8,10 @@ const { errorResponse, corsHeaders } = require('../../../lib/utils');
 const { verificarAuth } = require('../../utils/auth');
 
 const prisma = new PrismaClient();
+
+// Configuração PDFShift
+const PDFSHIFT_API_KEY = 'sk_d7fe681e6b5b8272908538596da2d8356bd5a898';
+const PDFSHIFT_URL = 'https://api.pdfshift.io/v3/convert/pdf';
 
 // --- Funções Auxiliares ---
 const getMonthName = (month) => ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'][month - 1];
@@ -418,50 +419,35 @@ module.exports = async (req, res) => {
 
       console.log('[DEBUG] Iniciando geração de PDF para cronograma:', id);
       
-      // Gerar PDF
+      // Gerar HTML
       const { tableBodyHtml, weekCount } = generateCalendarBody(cronograma.ano, cronograma.mes, cronograma.atividades);
       console.log('[DEBUG] Corpo da tabela gerado, semanas:', weekCount);
       
       const html = await generateFullHtml(cronograma, tableBodyHtml, weekCount);
       console.log('[DEBUG] HTML completo gerado, tamanho:', html.length);
 
-      // Configurar Puppeteer
-      console.log('[DEBUG] Configurando Puppeteer...');
-      const browser = await puppeteer.launch({
-        args: chromium.args,
-        defaultViewport: chromium.defaultViewport,
-        executablePath: await chromium.executablePath(),
-        headless: chromium.headless,
-        ignoreHTTPSErrors: true,
-      });
-      console.log('[DEBUG] Browser iniciado');
-
-      const page = await browser.newPage();
-      console.log('[DEBUG] Nova página criada');
-      
-      await page.setContent(html, { waitUntil: 'networkidle0' });
-      console.log('[DEBUG] Conteúdo HTML definido');
-
-      // Gerar PDF
-      console.log('[DEBUG] Gerando PDF...');
-      const pdf = await page.pdf({
-        format: 'A4',
+      // Gerar PDF usando PDFShift
+      console.log('[DEBUG] Enviando HTML para PDFShift...');
+      const pdfShiftResponse = await axios.post(PDFSHIFT_URL, {
+        source: html,
         landscape: true,
-        printBackground: true,
-        margin: {
-          top: '20px',
-          right: '20px',
-          bottom: '20px',
-          left: '20px'
-        }
+        format: 'A4',
+        margin: '20px',
+        use_print: true,
+        timeout: 30
+      }, {
+        headers: {
+          'X-API-Key': PDFSHIFT_API_KEY,
+          'Content-Type': 'application/json'
+        },
+        responseType: 'arraybuffer',
+        timeout: 35000 // 35 segundos
       });
-      console.log('[DEBUG] PDF gerado, tamanho:', pdf.length);
 
-      await browser.close();
-      console.log('[DEBUG] Browser fechado');
+      console.log('[DEBUG] PDF gerado pelo PDFShift, tamanho:', pdfShiftResponse.data.length);
 
-      // Converter PDF para base64
-      const pdfBase64 = pdf.toString('base64');
+      // Converter para base64
+      const pdfBase64 = Buffer.from(pdfShiftResponse.data).toString('base64');
       console.log('[DEBUG] PDF convertido para base64, tamanho:', pdfBase64.length);
 
       // Retornar resposta

@@ -7,7 +7,8 @@ const { ptBR } = require('date-fns/locale');
 const fs = require('fs').promises;
 const path = require('path');
 const axios = require('axios');
-const { errorResponse } = require('../../../lib/utils');
+const { errorResponse, corsHeaders } = require('../../../lib/utils');
+const { verificarAuth } = require('../../utils/auth');
 
 const prisma = new PrismaClient();
 
@@ -366,29 +367,43 @@ async function generateFullHtml(cronograma, tableBody, weekCount) {
 
 // --- Handler Principal ---
 module.exports = async (req, res) => {
-  try {
-    const { id } = req.query;
+  // Configurar CORS
+  if (corsHeaders(req, res)) return;
 
-    // Buscar cronograma
-    const cronograma = await prisma.cronograma.findUnique({
-      where: { id },
-      include: {
-        atividades: {
-          orderBy: {
-            data: 'asc'
+  // Verificar se é método POST
+  if (req.method !== 'POST') {
+    return errorResponse(res, 'Método não permitido. Use POST para gerar PDF.', 405);
+  }
+
+  // Verificar autenticação
+  verificarAuth(req, res, async () => {
+    try {
+      const { id } = req.query;
+
+      if (!id) {
+        return errorResponse(res, 'ID do cronograma é obrigatório', 400);
+      }
+
+      // Buscar cronograma
+      const cronograma = await prisma.cronograma.findUnique({
+        where: { id },
+        include: {
+          atividades: {
+            orderBy: {
+              data: 'asc'
+            }
           }
         }
+      });
+
+      if (!cronograma) {
+        return errorResponse(res, 'Cronograma não encontrado', 404);
       }
-    });
 
-    if (!cronograma) {
-      return errorResponse(res, 'Cronograma não encontrado', 404);
-    }
-
-    // Verificar se o usuário tem permissão para acessar este cronograma
-    if (cronograma.usuarioId !== req.usuario.id) {
-      return errorResponse(res, 'Sem permissão para acessar este cronograma', 403);
-    }
+      // Verificar se o usuário tem permissão para acessar este cronograma
+      if (cronograma.usuarioId && cronograma.usuarioId !== req.usuario.id) {
+        return errorResponse(res, 'Sem permissão para acessar este cronograma', 403);
+      }
 
     // Gerar PDF
     const { tableBodyHtml, weekCount } = generateCalendarBody(cronograma.ano, cronograma.mes, cronograma.atividades);
@@ -424,20 +439,21 @@ module.exports = async (req, res) => {
     // Converter PDF para base64
     const pdfBase64 = pdf.toString('base64');
 
-    // Retornar resposta
-    return res.status(200).json({
-      success: true,
-      message: 'PDF gerado com sucesso',
-      data: {
-        pdfBase64
-      },
-      timestamp: new Date().toISOString()
-    });
+      // Retornar resposta
+      return res.status(200).json({
+        success: true,
+        message: 'PDF gerado com sucesso',
+        data: {
+          pdfBase64
+        },
+        timestamp: new Date().toISOString()
+      });
 
-  } catch (error) {
-    console.error('Erro ao gerar PDF:', error);
-    return errorResponse(res, 'Erro ao gerar PDF', 500);
-  }
+    } catch (error) {
+      console.error('Erro ao gerar PDF:', error);
+      return errorResponse(res, 'Erro ao gerar PDF', 500);
+    }
+  });
 };
 
 module.exports.generateCalendarBody = generateCalendarBody;

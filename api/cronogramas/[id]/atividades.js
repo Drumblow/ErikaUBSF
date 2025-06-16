@@ -14,16 +14,16 @@ module.exports = async (req, res) => {
   // Configurar CORS
   if (corsHeaders(req, res)) return;
 
-  try {
-    const { id } = req.query; // ID do cronograma
-    
-    // Validar ID do cronograma
-    if (!isValidId(id)) {
-      return errorResponse(res, 'ID do cronograma inválido', 400);
-    }
+  // Verificar autenticação primeiro
+  verificarAuth(req, res, async () => {
+    try {
+      const { id } = req.query; // ID do cronograma
+      
+      // Validar ID do cronograma
+      if (!isValidId(id)) {
+        return errorResponse(res, 'ID do cronograma inválido', 400);
+      }
 
-    // Verificar autenticação para todas as rotas
-    await verificarAuth(req, res, async () => {
       switch (req.method) {
         case 'GET':
           return await getAtividades(req, res, id);
@@ -32,11 +32,11 @@ module.exports = async (req, res) => {
         default:
           return errorResponse(res, 'Método não permitido', 405);
       }
-    });
-  } catch (error) {
-    console.error('Erro na API de atividades:', error);
-    return errorResponse(res, 'Erro interno do servidor', 500);
-  }
+    } catch (error) {
+      console.error('Erro na API de atividades:', error);
+      return errorResponse(res, 'Erro interno do servidor', 500);
+    }
+  });
 };
 
 // GET /api/cronogramas/[id]/atividades - Listar atividades do cronograma

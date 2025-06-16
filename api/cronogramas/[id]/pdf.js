@@ -192,13 +192,24 @@ function generateCalendarBody(ano, mes, atividades) {
 // --- Nova Função para Gerar o HTML Completo ---
 async function generateFullHtml(cronograma, tableBody, weekCount) {
     const monthName = getMonthName(cronograma.mes).toUpperCase();
-    const leftLogoPath = path.join(__dirname, '_assets', 'image3.png');
-    const rightLogoPath = path.join(__dirname, '_assets', 'image2.jpg');
-    const headerTitleImagePath = path.join(__dirname, '_assets', 'image1.png');
+    
+    let leftLogoBase64 = '';
+    let rightLogoBase64 = '';
+    let headerTitleImageBase64 = '';
+    
+    try {
+        const leftLogoPath = path.join(__dirname, '_assets', 'image3.png');
+        const rightLogoPath = path.join(__dirname, '_assets', 'image2.jpg');
+        const headerTitleImagePath = path.join(__dirname, '_assets', 'image1.png');
 
-    const leftLogoBase64 = await imageToBase64(leftLogoPath);
-    const rightLogoBase64 = await imageToBase64(rightLogoPath);
-    const headerTitleImageBase64 = await imageToBase64(headerTitleImagePath);
+        leftLogoBase64 = await imageToBase64(leftLogoPath);
+        rightLogoBase64 = await imageToBase64(rightLogoPath);
+        headerTitleImageBase64 = await imageToBase64(headerTitleImagePath);
+        console.log('[DEBUG] Imagens carregadas com sucesso');
+    } catch (error) {
+        console.warn('[WARNING] Erro ao carregar imagens:', error.message);
+        // Continua sem as imagens - elas são opcionais
+    }
 
     let sizeClass = 'size-normal';
     if (weekCount <= 4) {
@@ -331,11 +342,11 @@ async function generateFullHtml(cronograma, tableBody, weekCount) {
         <body class="${sizeClass}">
             <div class="header">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <img src="data:image/png;base64,${leftLogoBase64}" alt="Logo Saúde" class="logo">
+                    ${leftLogoBase64 ? `<img src="data:image/png;base64,${leftLogoBase64}" alt="Logo Saúde" class="logo">` : '<div class="logo" style="width: 62px;"></div>'}
                     <div style="flex: 1; text-align: center;">
-                        <img src="data:image/png;base64,${headerTitleImageBase64}" alt="Título" class="header-title-img">
+                        ${headerTitleImageBase64 ? `<img src="data:image/png;base64,${headerTitleImageBase64}" alt="Título" class="header-title-img">` : '<div class="header-title">CRONOGRAMA DE ATENDIMENTO</div>'}
                     </div>
-                    <img src="data:image/jpeg;base64,${rightLogoBase64}" alt="Logo Tutóia" class="logo">
+                    ${rightLogoBase64 ? `<img src="data:image/jpeg;base64,${rightLogoBase64}" alt="Logo Tutóia" class="logo">` : '<div class="logo" style="width: 62px;"></div>'}
                 </div>
             </div>
             <div class="info-row">
@@ -405,39 +416,53 @@ module.exports = async (req, res) => {
         return errorResponse(res, 'Sem permissão para acessar este cronograma', 403);
       }
 
-    // Gerar PDF
-    const { tableBodyHtml, weekCount } = generateCalendarBody(cronograma.ano, cronograma.mes, cronograma.atividades);
-    const html = await generateFullHtml(cronograma, tableBodyHtml, weekCount);
+      console.log('[DEBUG] Iniciando geração de PDF para cronograma:', id);
+      
+      // Gerar PDF
+      const { tableBodyHtml, weekCount } = generateCalendarBody(cronograma.ano, cronograma.mes, cronograma.atividades);
+      console.log('[DEBUG] Corpo da tabela gerado, semanas:', weekCount);
+      
+      const html = await generateFullHtml(cronograma, tableBodyHtml, weekCount);
+      console.log('[DEBUG] HTML completo gerado, tamanho:', html.length);
 
-    // Configurar Puppeteer
-    const browser = await puppeteer.launch({
-      args: chromium.args,
-      defaultViewport: chromium.defaultViewport,
-      executablePath: await chromium.executablePath(),
-      headless: chromium.headless,
-      ignoreHTTPSErrors: true,
-    });
+      // Configurar Puppeteer
+      console.log('[DEBUG] Configurando Puppeteer...');
+      const browser = await puppeteer.launch({
+        args: chromium.args,
+        defaultViewport: chromium.defaultViewport,
+        executablePath: await chromium.executablePath(),
+        headless: chromium.headless,
+        ignoreHTTPSErrors: true,
+      });
+      console.log('[DEBUG] Browser iniciado');
 
-    const page = await browser.newPage();
-    await page.setContent(html, { waitUntil: 'networkidle0' });
+      const page = await browser.newPage();
+      console.log('[DEBUG] Nova página criada');
+      
+      await page.setContent(html, { waitUntil: 'networkidle0' });
+      console.log('[DEBUG] Conteúdo HTML definido');
 
-    // Gerar PDF
-    const pdf = await page.pdf({
-      format: 'A4',
-      landscape: true,
-      printBackground: true,
-      margin: {
-        top: '20px',
-        right: '20px',
-        bottom: '20px',
-        left: '20px'
-      }
-    });
+      // Gerar PDF
+      console.log('[DEBUG] Gerando PDF...');
+      const pdf = await page.pdf({
+        format: 'A4',
+        landscape: true,
+        printBackground: true,
+        margin: {
+          top: '20px',
+          right: '20px',
+          bottom: '20px',
+          left: '20px'
+        }
+      });
+      console.log('[DEBUG] PDF gerado, tamanho:', pdf.length);
 
-    await browser.close();
+      await browser.close();
+      console.log('[DEBUG] Browser fechado');
 
-    // Converter PDF para base64
-    const pdfBase64 = pdf.toString('base64');
+      // Converter PDF para base64
+      const pdfBase64 = pdf.toString('base64');
+      console.log('[DEBUG] PDF convertido para base64, tamanho:', pdfBase64.length);
 
       // Retornar resposta
       return res.status(200).json({

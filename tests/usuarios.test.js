@@ -1,9 +1,9 @@
 const request = require('supertest');
 const { PrismaClient } = require('@prisma/client');
 const { hashSenha } = require('../api/utils/auth');
+const app = require('../server');
 
 const prisma = new PrismaClient();
-const app = 'http://localhost:3000';
 
 describe('Sistema de Usuários', () => {
   let testUser;

@@ -29,7 +29,7 @@ const gerarToken = (usuario) => {
 };
 
 // Middleware para verificar autenticação
-const verificarAuth = (req, res, next) => {
+const verificarAuth = async (req, res, next) => {
   try {
     const token = req.headers.authorization?.split(' ')[1];
     if (!token) {
@@ -42,7 +42,26 @@ const verificarAuth = (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, JWT_SECRET);
-    req.usuario = decoded;
+    
+    // Buscar usuário no banco
+    const usuario = await prisma.usuario.findUnique({
+      where: { id: decoded.id }
+    });
+
+    if (!usuario) {
+      return res.status(401).json({
+        success: false,
+        message: 'Usuário não encontrado',
+        data: null,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    // Remover a senha do objeto do usuário
+    const { senha: _, ...usuarioSemSenha } = usuario;
+    
+    // Adicionar usuário ao request
+    req.usuario = usuarioSemSenha;
     next();
   } catch (error) {
     return res.status(401).json({
@@ -54,38 +73,9 @@ const verificarAuth = (req, res, next) => {
   }
 };
 
-const verifyUser = async (req, res) => {
-  const { authorization } = req.headers;
-  if (!authorization) {
-    res.status(401).json({ error: 'Token de autorização não fornecido.' });
-    return null;
-  }
-
-  const token = authorization.split(' ')[1];
-  if (!token) {
-    res.status(401).json({ error: 'Token mal formatado.' });
-    return null;
-  }
-
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await prisma.user.findUnique({ where: { id: decoded.userId } });
-    if (!user) {
-      res.status(404).json({ error: 'Usuário não encontrado.' });
-      return null;
-    }
-    req.user = user;
-    return user;
-  } catch (error) {
-    res.status(401).json({ error: 'Token inválido ou expirado.' });
-    return null;
-  }
-};
-
 module.exports = {
   hashSenha,
   verificarSenha,
   gerarToken,
-  verificarAuth,
-  verifyUser
+  verificarAuth
 }; 

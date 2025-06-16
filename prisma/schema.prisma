@@ -30,8 +30,8 @@ model Cronograma {
   nomeUBSF     String?
   enfermeiro   String?
   medico       String?
-  usuarioId    String
-  usuario      Usuario     @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  usuarioId    String?
+  usuario      Usuario?    @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
   atividades   Atividade[]
   criadoEm     DateTime    @default(now())
   atualizadoEm DateTime    @updatedAt

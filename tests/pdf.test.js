@@ -1,86 +1,149 @@
+const request = require('supertest');
 const { PrismaClient } = require('@prisma/client');
-const puppeteer = require('puppeteer-core');
-const chromium = require('@sparticuz/chromium');
+const app = require('../server');
 const path = require('path');
 const fs = require('fs').promises;
-const axios = require('axios');
 
-// Importa as funções do arquivo pdf.js da API
-const { generateCalendarBody, generateFullHtml } = require('../api/cronogramas/[id]/pdf.js');
-
-// Inicializa o cliente Prisma
 const prisma = new PrismaClient();
 
-const cronogramaId = 'cmbo4ow1r00003cjkldne13s3'; // ID do cronograma de Junho/2025
+describe('Geração de PDF', () => {
+  let testUser;
+  let testToken;
+  let cronogramaId;
 
-async function testPDFGeneration() {
-  try {
-    console.log('🚀 Iniciando teste de geração de PDF...');
+  beforeAll(async () => {
+    // Criar usuário de teste
+    const response = await request(app)
+      .post('/api/auth/cadastro')
+      .send({
+        email: `test-pdf-${Date.now()}@example.com`,
+        nome: 'Usuário Teste PDF',
+        senha: 'senha123',
+        cargo: 'enfermeiro'
+      });
 
-    // Buscar o cronograma do banco de dados
-    const cronograma = await prisma.cronograma.findUnique({
-      where: { id: cronogramaId },
-      include: { atividades: true }
-    });
+    testUser = response.body.data.usuario;
+    testToken = response.body.data.token;
 
-    if (!cronograma) {
-      throw new Error(`Cronograma com ID ${cronogramaId} não encontrado`);
+    // Criar cronograma de teste
+    const cronogramaRes = await request(app)
+      .post('/api/cronogramas')
+      .set('Authorization', `Bearer ${testToken}`)
+      .send({
+        mes: 6,
+        ano: 2025,
+        nomeUBSF: "UBSF Teste PDF",
+        enfermeiro: "Enf. Teste",
+        medico: "Dr. Teste"
+      });
+
+    cronogramaId = cronogramaRes.body.data.id;
+
+    // Adicionar algumas atividades
+    await request(app)
+      .post(`/api/cronogramas/${cronogramaId}/atividades`)
+      .set('Authorization', `Bearer ${testToken}`)
+      .send({
+        data: '2025-06-02',
+        diaSemana: 'SEGUNDA-MANHÃ',
+        descricao: 'Consulta de rotina'
+      });
+  });
+
+  afterAll(async () => {
+    // Limpar dados de teste
+    if (cronogramaId) {
+      await prisma.atividade.deleteMany({
+        where: {
+          cronogramaId
+        }
+      });
+      await prisma.cronograma.delete({
+        where: {
+          id: cronogramaId
+        }
+      }).catch(() => {});
+    }
+    
+    if (testUser?.id) {
+      await prisma.usuario.delete({
+        where: {
+          id: testUser.id
+        }
+      }).catch(() => {});
     }
 
-    console.log('✅ Cronograma encontrado:', cronograma.id);
-    console.log(`📅 Mês/Ano: ${cronograma.mes}/${cronograma.ano}`);
-    console.log(`📝 Atividades: ${cronograma.atividades.length}`);
-    console.log(`🏥 UBSF: ${cronograma.nomeUBSF || 'N/A'}`);
+    await prisma.$disconnect();
+  });
 
-    // 2. Chamar a API para gerar o PDF
-    const API_URL = 'http://localhost:3000';
-    console.log('🔄 Chamando API para gerar PDF...');
-    const response = await axios.post(`${API_URL}/api/cronogramas/${cronogramaId}/pdf`);
-    if (!response.data.success) {
-      throw new Error(`Erro na API: ${response.data.message}`);
-    }
-    const pdfBase64 = response.data.data.pdfBase64;
-    const pdfBuffer = Buffer.from(pdfBase64, 'base64');
+  it('deve gerar PDF do cronograma com sucesso', async () => {
+    const response = await request(app)
+      .post(`/api/cronogramas/${cronogramaId}/pdf`)
+      .set('Authorization', `Bearer ${testToken}`);
 
-    // 3. Salvar PDF para verificação
+    expect(response.status).toBe(200);
+    expect(response.body.success).toBe(true);
+    expect(response.body.data).toHaveProperty('pdfBase64');
+
+    // Verificar se o PDF pode ser salvo
+    const pdfBuffer = Buffer.from(response.body.data.pdfBase64, 'base64');
     const outputPath = path.join(__dirname, 'output.pdf');
     await fs.writeFile(outputPath, pdfBuffer);
-    console.log(`✅ PDF salvo em: ${outputPath}`);
 
-    return {
-      success: true,
-      message: 'PDF gerado com sucesso',
-      data: {
-        cronogramaId: cronograma.id,
-        mes: cronograma.mes,
-        ano: cronograma.ano,
-        nomeUBSF: cronograma.nomeUBSF
+    // Verificar se o arquivo foi criado
+    const fileStats = await fs.stat(outputPath);
+    expect(fileStats.size).toBeGreaterThan(0);
+
+    // Limpar arquivo de teste
+    await fs.unlink(outputPath);
+  });
+
+  it('não deve gerar PDF para cronograma inexistente', async () => {
+    const response = await request(app)
+      .post('/api/cronogramas/cronograma-inexistente/pdf')
+      .set('Authorization', `Bearer ${testToken}`);
+
+    expect(response.status).toBe(404);
+    expect(response.body.success).toBe(false);
+    expect(response.body.message).toContain('não encontrado');
+  });
+
+  it('não deve gerar PDF sem autenticação', async () => {
+    const response = await request(app)
+      .post(`/api/cronogramas/${cronogramaId}/pdf`);
+
+    expect(response.status).toBe(401);
+    expect(response.body.success).toBe(false);
+    expect(response.body.message).toContain('Token');
+  });
+
+  it('não deve gerar PDF de cronograma de outro usuário', async () => {
+    // Criar outro usuário
+    const outroUsuario = await request(app)
+      .post('/api/auth/cadastro')
+      .send({
+        email: `outro-user-pdf-${Date.now()}@example.com`,
+        nome: 'Outro Usuário PDF',
+        senha: 'senha123',
+        cargo: 'enfermeiro'
+      });
+
+    const outroToken = outroUsuario.body.data.token;
+
+    // Tentar gerar PDF do cronograma do primeiro usuário
+    const response = await request(app)
+      .post(`/api/cronogramas/${cronogramaId}/pdf`)
+      .set('Authorization', `Bearer ${outroToken}`);
+    
+    expect(response.status).toBe(403);
+    expect(response.body.success).toBe(false);
+    expect(response.body.message).toContain('permissão');
+
+    // Limpar outro usuário
+    await prisma.usuario.delete({
+      where: {
+        id: outroUsuario.body.data.usuario.id
       }
-    };
-
-  } catch (error) {
-    console.error('❌ Erro durante o teste:', error);
-    return {
-      success: false,
-      message: error.message,
-      data: null
-    };
-  } finally {
-    await prisma.$disconnect();
-  }
-}
-
-// Executar o teste
-testPDFGeneration().then(result => {
-  console.log('\n📋 Resultado final:', result.success ? '✅ SUCESSO' : '❌ FALHA');
-  console.log('Mensagem:', result.message);
-  if (result.data) {
-    console.log('Cronograma testado:', {
-      id: result.data.cronogramaId,
-      mes: result.data.mes,
-      ano: result.data.ano,
-      nomeUBSF: result.data.nomeUBSF
-    });
-  }
-  process.exit(result.success ? 0 : 1);
+    }).catch(() => {});
+  });
 }); 

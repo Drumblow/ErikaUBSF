@@ -54,6 +54,11 @@ async function getCronograma(req, res, id) {
     if (!cronograma) {
       return errorResponse(res, 'Cronograma não encontrado', 404);
     }
+
+    // Verificar se o usuário tem permissão para acessar este cronograma
+    if (cronograma.usuarioId !== req.usuario.id) {
+      return errorResponse(res, 'Sem permissão para acessar este cronograma', 403);
+    }
     
     return successResponse(res, cronograma, 'Cronograma encontrado com sucesso');
     
@@ -75,6 +80,11 @@ async function updateCronograma(req, res, id) {
     if (!existingCronograma) {
       return errorResponse(res, 'Cronograma não encontrado', 404);
     }
+
+    // Verificar se o usuário tem permissão para atualizar este cronograma
+    if (existingCronograma.usuarioId !== req.usuario.id) {
+      return errorResponse(res, 'Sem permissão para atualizar este cronograma', 403);
+    }
     
     // Validar dados de entrada
     const validatedData = validateData(req.body, schemas.updateCronograma);
@@ -88,6 +98,7 @@ async function updateCronograma(req, res, id) {
         where: {
           mes,
           ano,
+          usuarioId: req.usuario.id,
           id: { not: id }
         }
       });
@@ -141,6 +152,11 @@ async function deleteCronograma(req, res, id) {
     
     if (!existingCronograma) {
       return errorResponse(res, 'Cronograma não encontrado', 404);
+    }
+
+    // Verificar se o usuário tem permissão para deletar este cronograma
+    if (existingCronograma.usuarioId !== req.usuario.id) {
+      return errorResponse(res, 'Sem permissão para deletar este cronograma', 403);
     }
     
     // Deletar cronograma (atividades serão deletadas em cascata)

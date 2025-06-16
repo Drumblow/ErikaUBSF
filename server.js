@@ -9,6 +9,7 @@ const cronogramaByIdHandler = require('./api/cronogramas/[id]');
 const atividadesHandler = require('./api/cronogramas/[id]/atividades');
 const pdfHandler = require('./api/cronogramas/[id]/pdf');
 const atividadeByIdHandler = require('./api/atividades/[id]');
+const { cadastrarUsuario, login, atualizarUsuario, excluirUsuario } = require('./api/auth/usuarios');
 
 const app = express();
 const PORT = process.env.API_PORT || 3000;
@@ -161,6 +162,12 @@ app.route('/api/atividades/:id')
     }
   });
 
+// Rotas de Autenticação
+app.post('/api/auth/cadastro', cadastrarUsuario);
+app.post('/api/auth/login', login);
+app.put('/api/auth/usuarios/:id', atualizarUsuario);
+app.delete('/api/auth/usuarios/:id', excluirUsuario);
+
 // Rota de fallback
 app.get('/', (req, res) => {
   res.json({
@@ -196,10 +203,14 @@ app.use('*', (req, res) => {
   });
 });
 
-// Iniciar servidor
-app.listen(PORT, () => {
-  console.log(`🚀 Servidor rodando em http://localhost:${PORT}`);
-  console.log(`📋 Health check: http://localhost:${PORT}/api/health`);
-  console.log(`📊 Documentação: http://localhost:${PORT}`);
-  console.log(`🗄️  Prisma Studio: npx prisma studio`);
-});
+// Iniciar servidor apenas se não estiver sendo importado para testes
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`🚀 Servidor rodando em http://localhost:${PORT}`);
+    console.log(`📋 Health check: http://localhost:${PORT}/api/health`);
+    console.log(`📊 Documentação: http://localhost:${PORT}`);
+    console.log(`🗄️  Prisma Studio: npx prisma studio`);
+  });
+}
+
+module.exports = app;

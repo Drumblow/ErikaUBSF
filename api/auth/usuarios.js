@@ -24,7 +24,7 @@ const cadastrarUsuario = async (req, res) => {
     if (usuarioExistente) {
       return res.status(409).json({
         success: false,
-        message: 'Email já cadastrado',
+        message: 'Email já existe',
         data: null,
         timestamp: new Date().toISOString()
       });
@@ -152,7 +152,7 @@ const atualizarUsuario = async (req, res) => {
     }
 
     // Verificar permissão
-    if (req.usuario.id !== id && req.usuario.cargo !== 'admin') {
+    if (req.usuario.id !== usuario.id && req.usuario.cargo !== 'admin') {
       return res.status(403).json({
         success: false,
         message: 'Sem permissão para atualizar este usuário',

@@ -1,5 +1,5 @@
 const { corsHeaders } = require('../../lib/utils');
-const { login } = require('./usuarios');
+const { cadastrarUsuario } = require('./usuarios');
 
 module.exports = async (req, res) => {
   // Configurar CORS
@@ -19,9 +19,9 @@ module.exports = async (req, res) => {
   }
 
   try {
-    await login(req, res);
+    await cadastrarUsuario(req, res);
   } catch (error) {
-    console.error('Erro no endpoint de login:', error);
+    console.error('Erro no endpoint de cadastro:', error);
     return res.status(500).json({
       success: false,
       message: 'Erro interno do servidor',

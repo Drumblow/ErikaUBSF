@@ -7,7 +7,6 @@ const { ptBR } = require('date-fns/locale');
 const fs = require('fs').promises;
 const path = require('path');
 const axios = require('axios');
-const { verificarAuth } = require('../../utils/auth');
 const { errorResponse } = require('../../../lib/utils');
 
 const prisma = new PrismaClient();
@@ -365,94 +364,76 @@ async function generateFullHtml(cronograma, tableBody, weekCount) {
     `;
 }
 
-// --- Função para gerar PDF via PDFShift ---
-async function gerarPdfViaPdfShift(html) {
-  const apiKey = 'sk_d7fe681e6b5b8272908538596da2d8356bd5a898';
-  const response = await axios.post(
-    'https://api.pdfshift.io/v3/convert/pdf',
-    {
-      source: html,
-      landscape: true,
-      use_print: true
-    },
-    {
-      headers: {
-        'X-API-Key': apiKey,
-        'Content-Type': 'application/json'
-      },
-      responseType: 'arraybuffer'
-    }
-  );
-  return response.data; // Buffer do PDF
-}
-
-async function handlePdfGeneration(req, res, cronograma) {
-  // Habilita CORS para qualquer origem
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
-
-  // Trata requisições OPTIONS (preflight)
-  if (req.method === 'OPTIONS') {
-    res.status(200).end();
-    return;
-  }
-
-  try {
-    // Gerar HTML do calendário
-    const { tableBodyHtml, weekCount } = generateCalendarBody(cronograma.ano, cronograma.mes, cronograma.atividades);
-    const html = await generateFullHtml(cronograma, tableBodyHtml, weekCount);
-
-    // Gerar PDF via PDFShift
-    const pdfBuffer = await gerarPdfViaPdfShift(html);
-    const pdfBase64 = Buffer.from(pdfBuffer).toString('base64');
-
-    // Retornar resposta conforme especificação
-    res.status(200).json({
-      success: true,
-      message: 'PDF gerado com sucesso.',
-      data: { pdfBase64 },
-      timestamp: new Date().toISOString()
-    });
-  } catch (error) {
-    console.error('Erro ao gerar PDF:', error);
-    res.status(500).json({
-      success: false,
-      message: `Erro ao gerar PDF: ${error.message}`,
-      data: null,
-      timestamp: new Date().toISOString()
-    });
-  }
-}
-
-// Função principal de manipulação da requisição
+// --- Handler Principal ---
 module.exports = async (req, res) => {
   try {
     const { id } = req.query;
 
-    // Verificar autenticação
-    await verificarAuth(req, res, async () => {
-      // Verificar se o cronograma existe e pertence ao usuário
-      const cronograma = await prisma.cronograma.findFirst({
-        where: {
-          id,
-          usuarioId: req.usuario.id
-        },
-        include: {
-          atividades: {
-            orderBy: {
-              data: 'asc'
-            }
+    // Buscar cronograma
+    const cronograma = await prisma.cronograma.findUnique({
+      where: { id },
+      include: {
+        atividades: {
+          orderBy: {
+            data: 'asc'
           }
         }
-      });
-
-      if (!cronograma) {
-        return errorResponse(res, 'Cronograma não encontrado', 404);
       }
-
-      return await handlePdfGeneration(req, res, cronograma);
     });
+
+    if (!cronograma) {
+      return errorResponse(res, 'Cronograma não encontrado', 404);
+    }
+
+    // Verificar se o usuário tem permissão para acessar este cronograma
+    if (cronograma.usuarioId !== req.usuario.id) {
+      return errorResponse(res, 'Sem permissão para acessar este cronograma', 403);
+    }
+
+    // Gerar PDF
+    const { tableBodyHtml, weekCount } = generateCalendarBody(cronograma.ano, cronograma.mes, cronograma.atividades);
+    const html = await generateFullHtml(cronograma, tableBodyHtml, weekCount);
+
+    // Configurar Puppeteer
+    const browser = await puppeteer.launch({
+      args: chromium.args,
+      defaultViewport: chromium.defaultViewport,
+      executablePath: await chromium.executablePath(),
+      headless: chromium.headless,
+      ignoreHTTPSErrors: true,
+    });
+
+    const page = await browser.newPage();
+    await page.setContent(html, { waitUntil: 'networkidle0' });
+
+    // Gerar PDF
+    const pdf = await page.pdf({
+      format: 'A4',
+      landscape: true,
+      printBackground: true,
+      margin: {
+        top: '20px',
+        right: '20px',
+        bottom: '20px',
+        left: '20px'
+      }
+    });
+
+    await browser.close();
+
+    // Converter PDF para base64
+    const pdfBase64 = pdf.toString('base64');
+
+    // Retornar resposta
+    return res.status(200).json({
+      success: true,
+      message: 'PDF gerado com sucesso',
+      data: {
+        pdfBase64
+      },
+      timestamp: new Date().toISOString()
+    });
+
   } catch (error) {
     console.error('Erro ao gerar PDF:', error);
     return errorResponse(res, 'Erro ao gerar PDF', 500);

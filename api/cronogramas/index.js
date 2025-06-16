@@ -7,27 +7,31 @@ const {
   validateData, 
   handlePrismaError 
 } = require('../../lib/utils');
+const { verificarAuth } = require('../utils/auth');
 
 module.exports = async (req, res) => {
   // Configurar CORS
   if (corsHeaders(req, res)) return;
 
-  try {
-    switch (req.method) {
-      case 'GET':
-        return await getCronogramas(req, res);
-      case 'POST':
-        return await createCronograma(req, res);
-      default:
-        return errorResponse(res, 'Método não permitido', 405);
+  // Verificar autenticação primeiro
+  verificarAuth(req, res, async () => {
+    try {
+      switch (req.method) {
+        case 'GET':
+          return await getCronogramas(req, res);
+        case 'POST':
+          return await createCronograma(req, res);
+        default:
+          return errorResponse(res, 'Método não permitido', 405);
+      }
+    } catch (error) {
+      console.error('Erro na API de cronogramas:', error);
+      return errorResponse(res, 'Erro interno do servidor', 500);
     }
-  } catch (error) {
-    console.error('Erro na API de cronogramas:', error);
-    return errorResponse(res, 'Erro interno do servidor', 500);
-  }
+  });
 };
 
-// GET /api/cronogramas - Listar todos os cronogramas
+// GET /api/cronogramas - Listar cronogramas do usuário autenticado
 async function getCronogramas(req, res) {
   try {
     const { page = 1, limit = 10, mes, ano } = req.query;
@@ -35,8 +39,10 @@ async function getCronogramas(req, res) {
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const take = parseInt(limit);
     
-    // Construir filtros
-    const where = {};
+    // Construir filtros - IMPORTANTE: filtrar por usuário logado
+    const where = {
+      usuarioId: req.usuario.id // Filtrar apenas cronogramas do usuário autenticado
+    };
     if (mes) where.mes = parseInt(mes);
     if (ano) where.ano = parseInt(ano);
     
@@ -79,31 +85,31 @@ async function getCronogramas(req, res) {
   }
 }
 
-// POST /api/cronogramas - Criar novo cronograma
+// POST /api/cronogramas - Criar novo cronograma para o usuário autenticado
 async function createCronograma(req, res) {
   try {
     // Validar dados de entrada
     const validatedData = validateData(req.body, schemas.cronograma);
     
-    // Verificar se já existe cronograma para o mesmo mês/ano
+    // Verificar se já existe cronograma para o mesmo mês/ano do usuário
     const existingCronograma = await prisma.cronograma.findFirst({
       where: {
         mes: validatedData.mes,
-        ano: validatedData.ano
+        ano: validatedData.ano,
+        usuarioId: req.usuario.id
       }
     });
     
     if (existingCronograma) {
       return errorResponse(
         res, 
-        `Já existe um cronograma para ${validatedData.mes}/${validatedData.ano}`, 
+        `Você já possui um cronograma para ${validatedData.mes}/${validatedData.ano}`, 
         400
       );
     }
     
-    // Para cronogramas sem autenticação, precisamos definir um usuarioId padrão
-    // ou remover a obrigatoriedade de usuarioId
-    // Por enquanto vou comentar a validação de unicidade por usuário
+    // Adicionar usuarioId aos dados
+    validatedData.usuarioId = req.usuario.id;
     
     // Criar cronograma
     const cronograma = await prisma.cronograma.create({

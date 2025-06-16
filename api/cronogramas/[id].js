@@ -8,33 +8,37 @@ const {
   handlePrismaError,
   isValidId 
 } = require('../../lib/utils');
+const { verificarAuth } = require('../utils/auth');
 
 module.exports = async (req, res) => {
   // Configurar CORS
   if (corsHeaders(req, res)) return;
 
-  try {
-    const { id } = req.query;
-    
-    // Validar ID
-    if (!isValidId(id)) {
-      return errorResponse(res, 'ID inválido', 400);
-    }
+  // Verificar autenticação primeiro
+  verificarAuth(req, res, async () => {
+    try {
+      const { id } = req.query;
+      
+      // Validar ID
+      if (!isValidId(id)) {
+        return errorResponse(res, 'ID inválido', 400);
+      }
 
-    switch (req.method) {
-      case 'GET':
-        return await getCronograma(req, res, id);
-      case 'PUT':
-        return await updateCronograma(req, res, id);
-      case 'DELETE':
-        return await deleteCronograma(req, res, id);
-      default:
-        return errorResponse(res, 'Método não permitido', 405);
+      switch (req.method) {
+        case 'GET':
+          return await getCronograma(req, res, id);
+        case 'PUT':
+          return await updateCronograma(req, res, id);
+        case 'DELETE':
+          return await deleteCronograma(req, res, id);
+        default:
+          return errorResponse(res, 'Método não permitido', 405);
+      }
+    } catch (error) {
+      console.error('Erro na API de cronograma por ID:', error);
+      return errorResponse(res, 'Erro interno do servidor', 500);
     }
-  } catch (error) {
-    console.error('Erro na API de cronograma por ID:', error);
-    return errorResponse(res, 'Erro interno do servidor', 500);
-  }
+  });
 };
 
 // GET /api/cronogramas/[id] - Buscar cronograma por ID

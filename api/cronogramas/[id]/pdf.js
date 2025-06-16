@@ -212,12 +212,16 @@ async function generateFullHtml(cronograma, tableBody, weekCount) {
         // Continua sem as imagens - elas são opcionais
     }
 
-    let sizeClass = 'size-normal';
-    if (weekCount <= 4) {
-        sizeClass = 'size-large';
+    let sizeClass = 'size-normal'; // 5 semanas
+    if (weekCount <= 3) {
+        sizeClass = 'size-xlarge'; // 3 semanas ou menos - texto bem maior
+    } else if (weekCount === 4) {
+        sizeClass = 'size-large'; // 4 semanas - texto médio/grande
     } else if (weekCount >= 6) {
-        sizeClass = 'size-small';
+        sizeClass = 'size-small'; // 6+ semanas - texto bem pequeno
     }
+    
+    console.log(`[DEBUG] Cronograma com ${weekCount} semanas - Usando classe: ${sizeClass}`);
 
     return `
         <!DOCTYPE html>
@@ -237,27 +241,38 @@ async function generateFullHtml(cronograma, tableBody, weekCount) {
                     --activity-cell-height: 85px;
                     --padding-base: 5px;
                 }
+                body.size-xlarge {
+                    /* Tamanhos para 3 semanas ou menos (bem maior) */
+                    --font-base: 18px;
+                    --font-header: 20px;
+                    --font-cell: 17px;
+                    --logo-height: 82px;
+                    --title-img-height: 95px;
+                    --date-cell-height: 30px;
+                    --activity-cell-height: 140px;
+                    --padding-base: 8px;
+                }
                 body.size-large {
-                    /* Tamanhos para 4 semanas ou menos (maior) */
+                    /* Tamanhos para 4 semanas (médio/grande) */
                     --font-base: 16px;
                     --font-header: 17px;
                     --font-cell: 15px;
                     --logo-height: 72px;
                     --title-img-height: 85px;
                     --date-cell-height: 25px;
-                    --activity-cell-height: 105px;
+                    --activity-cell-height: 110px;
                     --padding-base: 6px;
                 }
                 body.size-small {
-                    /* Tamanhos para 6 semanas (menor) */
-                    --font-base: 12px;
-                    --font-header: 13px;
-                    --font-cell: 11px;
-                    --logo-height: 52px;
-                    --title-img-height: 59px;
-                    --date-cell-height: 20px;
-                    --activity-cell-height: 70px;
-                    --padding-base: 4px;
+                    /* Tamanhos para 6+ semanas (bem menor) */
+                    --font-base: 11px;
+                    --font-header: 12px;
+                    --font-cell: 10px;
+                    --logo-height: 50px;
+                    --title-img-height: 55px;
+                    --date-cell-height: 18px;
+                    --activity-cell-height: 65px;
+                    --padding-base: 3px;
                 }
                 body {
                     font-family: Arial, sans-serif;

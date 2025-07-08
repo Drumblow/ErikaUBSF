@@ -1,16 +1,15 @@
 const { PrismaClient } = require('@prisma/client');
-const { format } = require('date-fns');
+const { format, getDaysInMonth, startOfMonth } = require('date-fns');
 const { ptBR } = require('date-fns/locale');
 const fs = require('fs').promises;
 const path = require('path');
 const axios = require('axios');
-const { errorResponse, corsHeaders } = require('../../../lib/utils');
-const { verificarAuth } = require('../../utils/auth');
+const { errorResponse, corsHeaders, isValidId } = require('../../../lib/utils');
 
 const prisma = new PrismaClient();
 
 // Configuração PDFShift
-const PDFSHIFT_API_KEY = 'sk_d7fe681e6b5b8272908538596da2d8356bd5a898';
+const PDFSHIFT_API_KEY = process.env.PDFSHIFT_API_KEY;
 const PDFSHIFT_URL = 'https://api.pdfshift.io/v3/convert/pdf';
 
 // --- Funções Auxiliares ---
@@ -394,93 +393,95 @@ async function generateFullHtml(cronograma, tableBody, weekCount) {
 
 // --- Handler Principal ---
 module.exports = async (req, res) => {
-  // Configurar CORS
   if (corsHeaders(req, res)) return;
 
-  // Verificar se é método POST
-  if (req.method !== 'POST') {
-    return errorResponse(res, 'Método não permitido. Use POST para gerar PDF.', 405);
+  // Autenticação foi movida para o server.js como middleware
+  try {
+    const { id: cronogramaId } = req.query;
+
+    if (!isValidId(cronogramaId)) {
+      return errorResponse(res, 'ID do cronograma inválido.', 400);
+    }
+
+    if (req.method !== 'POST') {
+      return errorResponse(res, 'Método não permitido.', 405);
+    }
+    
+    return await gerarPdf(req, res, cronogramaId);
+  } catch (error) {
+    console.error(`Erro ao gerar PDF para o cronograma:`, error);
+    return errorResponse(res, 'Erro interno do servidor ao gerar PDF.', 500);
   }
+};
 
-  // Verificar autenticação
-  verificarAuth(req, res, async () => {
-    try {
-      const { id } = req.query;
-
-      if (!id) {
-        return errorResponse(res, 'ID do cronograma é obrigatório', 400);
-      }
-
-      // Buscar cronograma
-      const cronograma = await prisma.cronograma.findUnique({
-        where: { id },
-        include: {
-          atividades: {
-            orderBy: {
-              data: 'asc'
-            }
+async function gerarPdf(req, res, cronogramaId) {
+  try {
+    // Buscar cronograma
+    const cronograma = await prisma.cronograma.findUnique({
+      where: { id: cronogramaId },
+      include: {
+        atividades: {
+          orderBy: {
+            data: 'asc'
           }
         }
-      });
-
-      if (!cronograma) {
-        return errorResponse(res, 'Cronograma não encontrado', 404);
       }
+    });
 
-      // Verificar se o usuário tem permissão para acessar este cronograma
-      if (cronograma.usuarioId && cronograma.usuarioId !== req.usuario.id) {
-        return errorResponse(res, 'Sem permissão para acessar este cronograma', 403);
-      }
-
-      console.log('[DEBUG] Iniciando geração de PDF para cronograma:', id);
-      
-      // Gerar HTML
-      const { tableBodyHtml, weekCount } = generateCalendarBody(cronograma.ano, cronograma.mes, cronograma.atividades);
-      console.log('[DEBUG] Corpo da tabela gerado, semanas:', weekCount);
-      
-      const html = await generateFullHtml(cronograma, tableBodyHtml, weekCount);
-      console.log('[DEBUG] HTML completo gerado, tamanho:', html.length);
-
-      // Gerar PDF usando PDFShift
-      console.log('[DEBUG] Enviando HTML para PDFShift...');
-      const pdfShiftResponse = await axios.post(PDFSHIFT_URL, {
-        source: html,
-        landscape: true,
-        format: 'A4',
-        margin: '20px',
-        use_print: true,
-        timeout: 30
-      }, {
-        headers: {
-          'X-API-Key': PDFSHIFT_API_KEY,
-          'Content-Type': 'application/json'
-        },
-        responseType: 'arraybuffer',
-        timeout: 35000 // 35 segundos
-      });
-
-      console.log('[DEBUG] PDF gerado pelo PDFShift, tamanho:', pdfShiftResponse.data.length);
-
-      // Converter para base64
-      const pdfBase64 = Buffer.from(pdfShiftResponse.data).toString('base64');
-      console.log('[DEBUG] PDF convertido para base64, tamanho:', pdfBase64.length);
-
-      // Retornar resposta
-      return res.status(200).json({
-        success: true,
-        message: 'PDF gerado com sucesso',
-        data: {
-          pdfBase64
-        },
-        timestamp: new Date().toISOString()
-      });
-
-    } catch (error) {
-      console.error('Erro ao gerar PDF:', error);
-      return errorResponse(res, 'Erro ao gerar PDF', 500);
+    if (!cronograma) {
+      return errorResponse(res, 'Cronograma não encontrado', 404);
     }
-  });
-};
+    
+    // Adicionar verificação de permissão
+    if (cronograma.usuarioId !== req.usuario.id) {
+        return errorResponse(res, 'Sem permissão para acessar este recurso.', 403);
+    }
+
+    // Gerar HTML
+    const { tableBodyHtml, weekCount } = generateCalendarBody(cronograma.ano, cronograma.mes, cronograma.atividades);
+    console.log('[DEBUG] Corpo da tabela gerado, semanas:', weekCount);
+    
+    const html = await generateFullHtml(cronograma, tableBodyHtml, weekCount);
+    console.log('[DEBUG] HTML completo gerado, tamanho:', html.length);
+
+    // Gerar PDF usando PDFShift
+    console.log('[DEBUG] Enviando HTML para PDFShift...');
+    const pdfShiftResponse = await axios.post(PDFSHIFT_URL, {
+      source: html,
+      landscape: true,
+      format: 'A4',
+      margin: '20px',
+      use_print: true,
+      timeout: 30
+    }, {
+      headers: {
+        'X-API-Key': PDFSHIFT_API_KEY,
+        'Content-Type': 'application/json'
+      },
+      responseType: 'arraybuffer',
+      timeout: 35000 // 35 segundos
+    });
+
+    console.log('[DEBUG] PDF gerado pelo PDFShift, tamanho:', pdfShiftResponse.data.length);
+
+    // Converter para base64
+    const pdfBase64 = Buffer.from(pdfShiftResponse.data).toString('base64');
+    console.log('[DEBUG] PDF convertido para base64, tamanho:', pdfBase64.length);
+
+    // Retornar resposta
+    return res.status(200).json({
+      success: true,
+      message: 'PDF gerado com sucesso',
+      data: {
+        pdfBase64
+      },
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Erro ao gerar PDF:', error);
+    return errorResponse(res, 'Erro ao gerar PDF', 500);
+  }
+}
 
 module.exports.generateCalendarBody = generateCalendarBody;
 module.exports.generateFullHtml = generateFullHtml;

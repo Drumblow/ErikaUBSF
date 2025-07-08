@@ -10,6 +10,7 @@ const atividadesHandler = require('./api/cronogramas/[id]/atividades');
 const pdfHandler = require('./api/cronogramas/[id]/pdf');
 const atividadeByIdHandler = require('./api/atividades/[id]');
 const { cadastrarUsuario, login, atualizarUsuario, excluirUsuario } = require('./api/auth/usuarios');
+const { verificarAuth } = require('./api/utils/auth');
 
 const app = express();
 const PORT = process.env.API_PORT || 3000;
@@ -28,13 +29,17 @@ app.use((req, res, next) => {
   next();
 });
 
-// Função helper para simular req.query do Vercel
+// Função helper para simular req.query e req.params do Vercel
 const createVercelRequest = (req, params = {}) => {
   return {
     ...req,
     query: {
       ...req.query,
-      ...params
+      ...params // Manter por compatibilidade com handlers que usam query
+    },
+    params: {
+      ...req.params,
+      ...params // Adicionar para handlers que usam params
     }
   };
 };
@@ -53,7 +58,7 @@ app.get('/api/health', async (req, res) => {
 
 // Cronogramas
 app.route('/api/cronogramas')
-  .get(async (req, res) => {
+  .get(verificarAuth, async (req, res) => {
     try {
       await cronogramasHandler(req, res);
     } catch (error) {
@@ -61,7 +66,7 @@ app.route('/api/cronogramas')
       res.status(500).json({ success: false, message: 'Erro interno do servidor' });
     }
   })
-  .post(async (req, res) => {
+  .post(verificarAuth, async (req, res) => {
     try {
       await cronogramasHandler(req, res);
     } catch (error) {
@@ -72,7 +77,7 @@ app.route('/api/cronogramas')
 
 // Cronograma por ID
 app.route('/api/cronogramas/:id')
-  .get(async (req, res) => {
+  .get(verificarAuth, async (req, res) => {
     try {
       const vercelReq = createVercelRequest(req, { id: req.params.id });
       await cronogramaByIdHandler(vercelReq, res);
@@ -81,7 +86,7 @@ app.route('/api/cronogramas/:id')
       res.status(500).json({ success: false, message: 'Erro interno do servidor' });
     }
   })
-  .put(async (req, res) => {
+  .put(verificarAuth, async (req, res) => {
     try {
       const vercelReq = createVercelRequest(req, { id: req.params.id });
       await cronogramaByIdHandler(vercelReq, res);
@@ -90,7 +95,7 @@ app.route('/api/cronogramas/:id')
       res.status(500).json({ success: false, message: 'Erro interno do servidor' });
     }
   })
-  .delete(async (req, res) => {
+  .delete(verificarAuth, async (req, res) => {
     try {
       const vercelReq = createVercelRequest(req, { id: req.params.id });
       await cronogramaByIdHandler(vercelReq, res);
@@ -102,7 +107,7 @@ app.route('/api/cronogramas/:id')
 
 // Atividades de um cronograma
 app.route('/api/cronogramas/:id/atividades')
-  .get(async (req, res) => {
+  .get(verificarAuth, async (req, res) => {
     try {
       const vercelReq = createVercelRequest(req, { id: req.params.id });
       await atividadesHandler(vercelReq, res);
@@ -111,7 +116,7 @@ app.route('/api/cronogramas/:id/atividades')
       res.status(500).json({ success: false, message: 'Erro interno do servidor' });
     }
   })
-  .post(async (req, res) => {
+  .post(verificarAuth, async (req, res) => {
     try {
       const vercelReq = createVercelRequest(req, { id: req.params.id });
       await atividadesHandler(vercelReq, res);
@@ -122,7 +127,7 @@ app.route('/api/cronogramas/:id/atividades')
   });
 
 // Rota para gerar PDF
-app.post('/api/cronogramas/:id/pdf', async (req, res) => {
+app.post('/api/cronogramas/:id/pdf', verificarAuth, async (req, res) => {
   try {
     const vercelReq = createVercelRequest(req, { id: req.params.id });
     await pdfHandler(vercelReq, res);
@@ -134,7 +139,7 @@ app.post('/api/cronogramas/:id/pdf', async (req, res) => {
 
 // Atividade por ID
 app.route('/api/atividades/:id')
-  .get(async (req, res) => {
+  .get(verificarAuth, async (req, res) => {
     try {
       const vercelReq = createVercelRequest(req, { id: req.params.id });
       await atividadeByIdHandler(vercelReq, res);
@@ -143,7 +148,7 @@ app.route('/api/atividades/:id')
       res.status(500).json({ success: false, message: 'Erro interno do servidor' });
     }
   })
-  .put(async (req, res) => {
+  .put(verificarAuth, async (req, res) => {
     try {
       const vercelReq = createVercelRequest(req, { id: req.params.id });
       await atividadeByIdHandler(vercelReq, res);
@@ -152,7 +157,7 @@ app.route('/api/atividades/:id')
       res.status(500).json({ success: false, message: 'Erro interno do servidor' });
     }
   })
-  .delete(async (req, res) => {
+  .delete(verificarAuth, async (req, res) => {
     try {
       const vercelReq = createVercelRequest(req, { id: req.params.id });
       await atividadeByIdHandler(vercelReq, res);
@@ -165,8 +170,14 @@ app.route('/api/atividades/:id')
 // Rotas de Autenticação
 app.post('/api/auth/cadastro', cadastrarUsuario);
 app.post('/api/auth/login', login);
-app.put('/api/auth/usuarios/:id', atualizarUsuario);
-app.delete('/api/auth/usuarios/:id', excluirUsuario);
+app.put('/api/auth/usuarios/:id', verificarAuth, (req, res) => {
+  const vercelReq = createVercelRequest(req, { id: req.params.id });
+  atualizarUsuario(vercelReq, res);
+});
+app.delete('/api/auth/usuarios/:id', verificarAuth, (req, res) => {
+  const vercelReq = createVercelRequest(req, { id: req.params.id });
+  excluirUsuario(vercelReq, res);
+});
 
 // Rota de fallback
 app.get('/', (req, res) => {

@@ -7,28 +7,25 @@ const {
   validateData, 
   handlePrismaError 
 } = require('../../lib/utils');
-const { verificarAuth } = require('../utils/auth');
 
 module.exports = async (req, res) => {
   // Configurar CORS
   if (corsHeaders(req, res)) return;
 
-  // Verificar autenticação primeiro
-  verificarAuth(req, res, async () => {
-    try {
-      switch (req.method) {
-        case 'GET':
-          return await getCronogramas(req, res);
-        case 'POST':
-          return await createCronograma(req, res);
-        default:
-          return errorResponse(res, 'Método não permitido', 405);
-      }
-    } catch (error) {
-      console.error('Erro na API de cronogramas:', error);
-      return errorResponse(res, 'Erro interno do servidor', 500);
+  // A autenticação agora é um middleware no server.js
+  try {
+    switch (req.method) {
+      case 'GET':
+        return await getCronogramas(req, res);
+      case 'POST':
+        return await createCronograma(req, res);
+      default:
+        return errorResponse(res, 'Método não permitido', 405);
     }
-  });
+  } catch (error) {
+    console.error('Erro na API de cronogramas:', error);
+    return errorResponse(res, 'Erro interno do servidor', 500);
+  }
 };
 
 // GET /api/cronogramas - Listar cronogramas do usuário autenticado

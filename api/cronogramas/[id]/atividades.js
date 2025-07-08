@@ -8,35 +8,30 @@ const {
   handlePrismaError,
   isValidId 
 } = require('../../../lib/utils');
-const { verificarAuth } = require('../../utils/auth');
 
 module.exports = async (req, res) => {
-  // Configurar CORS
   if (corsHeaders(req, res)) return;
 
-  // Verificar autenticação primeiro
-  verificarAuth(req, res, async () => {
-    try {
-      const { id } = req.query; // ID do cronograma
-      
-      // Validar ID do cronograma
-      if (!isValidId(id)) {
-        return errorResponse(res, 'ID do cronograma inválido', 400);
-      }
+  // A autenticação é movida para o middleware no server.js
+  try {
+    const { id: cronogramaId } = req.query;
 
-      switch (req.method) {
-        case 'GET':
-          return await getAtividades(req, res, id);
-        case 'POST':
-          return await createAtividade(req, res, id);
-        default:
-          return errorResponse(res, 'Método não permitido', 405);
-      }
-    } catch (error) {
-      console.error('Erro na API de atividades:', error);
-      return errorResponse(res, 'Erro interno do servidor', 500);
+    if (!isValidId(cronogramaId)) {
+      return errorResponse(res, 'ID do cronograma inválido', 400);
     }
-  });
+    
+    switch (req.method) {
+      case 'GET':
+        return await getAtividades(req, res, cronogramaId);
+      case 'POST':
+        return await createAtividade(req, res, cronogramaId);
+      default:
+        return errorResponse(res, 'Método não permitido', 405);
+    }
+  } catch (error) {
+    console.error('Erro na API de atividades:', error);
+    return errorResponse(res, 'Erro interno do servidor', 500);
+  }
 };
 
 // GET /api/cronogramas/[id]/atividades - Listar atividades do cronograma

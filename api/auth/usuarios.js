@@ -1,5 +1,6 @@
 const { prisma } = require('../../lib/database');
 const { hashSenha, verificarSenha, gerarToken } = require('../utils/auth');
+const { errorResponse } = require('../../lib/utils');
 
 // Cadastrar novo usuário
 const cadastrarUsuario = async (req, res) => {
@@ -96,17 +97,15 @@ const login = async (req, res) => {
     }
 
     // Verificar senha
-    const senhaCorreta = await verificarSenha(senha, usuario.senha);
-    if (!senhaCorreta) {
-      return res.status(401).json({
-        success: false,
-        message: 'Credenciais inválidas',
-        data: null,
-        timestamp: new Date().toISOString()
-      });
+    const senhaValida = await verificarSenha(senha, usuario.senha);
+
+    if (!senhaValida) {
+      // Adiciona log para diagnóstico de hashes antigos
+      console.log(`[Diagnóstico de Login] Tentativa de login falhou para o usuário: ${email}. Hash no banco: ${usuario.senha}`);
+      return errorResponse(res, 'Credenciais inválidas', 401);
     }
 
-    // Gerar token
+    // Gerar token JWT
     const token = gerarToken(usuario);
 
     // Retornar resposta sem a senha

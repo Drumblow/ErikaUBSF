@@ -1,6 +1,7 @@
 const { prisma } = require('../../lib/database');
 const { hashSenha, verificarSenha, gerarToken } = require('../utils/auth');
 const { errorResponse } = require('../../lib/utils');
+const { verificarAuthAsPromise } = require('../utils/auth');
 
 // Cadastrar novo usuário
 const cadastrarUsuario = async (req, res) => {
@@ -133,113 +134,105 @@ const login = async (req, res) => {
 // Atualizar usuário
 const atualizarUsuario = async (req, res) => {
   try {
-    const { id } = req.params;
-    const { nome, senha, cargo } = req.body;
-
-    // Verificar se usuário existe
-    const usuario = await prisma.usuario.findUnique({
-      where: { id }
-    });
-
-    if (!usuario) {
-      return res.status(404).json({
-        success: false,
-        message: 'Usuário não encontrado',
-        data: null,
-        timestamp: new Date().toISOString()
-      });
-    }
-
-    // Verificar permissão
-    if (req.usuario.id !== usuario.id && req.usuario.cargo !== 'admin') {
-      return res.status(403).json({
-        success: false,
-        message: 'Sem permissão para atualizar este usuário',
-        data: null,
-        timestamp: new Date().toISOString()
-      });
-    }
-
-    // Preparar dados para atualização
-    const dadosAtualizacao = {};
-    if (nome) dadosAtualizacao.nome = nome;
-    if (senha) dadosAtualizacao.senha = await hashSenha(senha);
-    if (cargo && req.usuario.cargo === 'admin') dadosAtualizacao.cargo = cargo;
-
-    // Atualizar usuário
-    const usuarioAtualizado = await prisma.usuario.update({
-      where: { id },
-      data: dadosAtualizacao
-    });
-
-    // Retornar resposta sem a senha
-    const { senha: _, ...usuarioSemSenha } = usuarioAtualizado;
-    return res.status(200).json({
-      success: true,
-      message: 'Usuário atualizado com sucesso',
-      data: usuarioSemSenha,
-      timestamp: new Date().toISOString()
-    });
+    await verificarAuthAsPromise(req);
   } catch (error) {
-    console.error('Erro ao atualizar usuário:', error);
-    return res.status(500).json({
+    return errorResponse(res, error.message, error.statusCode || 401);
+  }
+
+  const { id } = req.query;
+  const { nome, email, cargo, senha } = req.body;
+
+  // Verificar se usuário existe
+  const usuario = await prisma.usuario.findUnique({
+    where: { id }
+  });
+
+  if (!usuario) {
+    return res.status(404).json({
       success: false,
-      message: 'Erro interno do servidor',
+      message: 'Usuário não encontrado',
       data: null,
       timestamp: new Date().toISOString()
     });
   }
+
+  // Verificar permissão
+  if (req.usuario.id !== usuario.id && req.usuario.cargo !== 'admin') {
+    return res.status(403).json({
+      success: false,
+      message: 'Sem permissão para atualizar este usuário',
+      data: null,
+      timestamp: new Date().toISOString()
+    });
+  }
+
+  // Preparar dados para atualização
+  const dadosAtualizacao = {};
+  if (nome) dadosAtualizacao.nome = nome;
+  if (senha) dadosAtualizacao.senha = await hashSenha(senha);
+  if (cargo && req.usuario.cargo === 'admin') dadosAtualizacao.cargo = cargo;
+
+  // Atualizar usuário
+  const usuarioAtualizado = await prisma.usuario.update({
+    where: { id },
+    data: dadosAtualizacao
+  });
+
+  // Retornar resposta sem a senha
+  const { senha: _, ...usuarioSemSenha } = usuarioAtualizado;
+  return res.status(200).json({
+    success: true,
+    message: 'Usuário atualizado com sucesso',
+    data: usuarioSemSenha,
+    timestamp: new Date().toISOString()
+  });
 };
 
 // Excluir usuário
 const excluirUsuario = async (req, res) => {
   try {
-    const { id } = req.params;
-
-    // Verificar se usuário existe
-    const usuario = await prisma.usuario.findUnique({
-      where: { id }
-    });
-
-    if (!usuario) {
-      return res.status(404).json({
-        success: false,
-        message: 'Usuário não encontrado',
-        data: null,
-        timestamp: new Date().toISOString()
-      });
-    }
-
-    // Verificar permissão
-    if (req.usuario.id !== id && req.usuario.cargo !== 'admin') {
-      return res.status(403).json({
-        success: false,
-        message: 'Sem permissão para excluir este usuário',
-        data: null,
-        timestamp: new Date().toISOString()
-      });
-    }
-
-    // Excluir usuário
-    await prisma.usuario.delete({
-      where: { id }
-    });
-
-    return res.status(200).json({
-      success: true,
-      message: 'Usuário excluído com sucesso',
-      data: null,
-      timestamp: new Date().toISOString()
-    });
+    await verificarAuthAsPromise(req);
   } catch (error) {
-    console.error('Erro ao excluir usuário:', error);
-    return res.status(500).json({
+    return errorResponse(res, error.message, error.statusCode || 401);
+  }
+
+  const { id } = req.query;
+
+  // Verificar se usuário existe
+  const usuario = await prisma.usuario.findUnique({
+    where: { id }
+  });
+
+  if (!usuario) {
+    return res.status(404).json({
       success: false,
-      message: 'Erro interno do servidor',
+      message: 'Usuário não encontrado',
       data: null,
       timestamp: new Date().toISOString()
     });
   }
+
+  // Verificar permissão
+  if (req.usuario.id !== id && req.usuario.cargo !== 'admin') {
+    return res.status(403).json({
+      success: false,
+      message: 'Sem permissão para excluir este usuário',
+      data: null,
+      timestamp: new Date().toISOString()
+    });
+  }
+
+  // Excluir usuário
+  await prisma.usuario.delete({
+    where: { id }
+  });
+
+  return res.status(200).json({
+    success: true,
+    message: 'Usuário excluído com sucesso',
+    data: null,
+    timestamp: new Date().toISOString()
+  });
 };
 
 module.exports = {

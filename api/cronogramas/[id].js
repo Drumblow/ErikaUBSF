@@ -1,4 +1,4 @@
-const { prisma } = require('../../lib/database');
+const { PrismaClient } = require('@prisma/client');
 const { 
   successResponse, 
   errorResponse, 
@@ -8,12 +8,20 @@ const {
   handlePrismaError,
   isValidId 
 } = require('../../lib/utils');
+const { verificarAuthAsPromise } = require('../utils/auth');
+
+const prisma = new PrismaClient();
 
 module.exports = async (req, res) => {
   // Configurar CORS
   if (corsHeaders(req, res)) return;
 
-  // A verificação de autenticação agora é feita no server.js como middleware
+  try {
+    await verificarAuthAsPromise(req);
+  } catch (error) {
+    return errorResponse(res, error.message, error.statusCode || 401);
+  }
+
   try {
     const { id } = req.query;
 

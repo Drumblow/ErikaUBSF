@@ -31,17 +31,16 @@ app.use((req, res, next) => {
 
 // Função helper para simular req.query e req.params do Vercel
 const createVercelRequest = (req, params = {}) => {
-  return {
-    ...req,
-    query: {
-      ...req.query,
-      ...params // Manter por compatibilidade com handlers que usam query
-    },
-    params: {
-      ...req.params,
-      ...params // Adicionar para handlers que usam params
-    }
+  // Não crie um novo objeto, modifique o existente para preservar o protótipo
+  req.query = {
+    ...req.query,
+    ...params
   };
+  req.params = {
+    ...req.params,
+    ...params
+  };
+  return req;
 };
 
 // Rotas da API
@@ -56,9 +55,9 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
-// Cronogramas
+// Cronogramas (agora a autenticação é tratada dentro do handler)
 app.route('/api/cronogramas')
-  .get(verificarAuth, async (req, res) => {
+  .get(async (req, res) => {
     try {
       await cronogramasHandler(req, res);
     } catch (error) {
@@ -66,7 +65,7 @@ app.route('/api/cronogramas')
       res.status(500).json({ success: false, message: 'Erro interno do servidor' });
     }
   })
-  .post(verificarAuth, async (req, res) => {
+  .post(async (req, res) => {
     try {
       await cronogramasHandler(req, res);
     } catch (error) {
@@ -77,7 +76,7 @@ app.route('/api/cronogramas')
 
 // Cronograma por ID
 app.route('/api/cronogramas/:id')
-  .get(verificarAuth, async (req, res) => {
+  .get(async (req, res) => {
     try {
       const vercelReq = createVercelRequest(req, { id: req.params.id });
       await cronogramaByIdHandler(vercelReq, res);
@@ -86,7 +85,7 @@ app.route('/api/cronogramas/:id')
       res.status(500).json({ success: false, message: 'Erro interno do servidor' });
     }
   })
-  .put(verificarAuth, async (req, res) => {
+  .put(async (req, res) => {
     try {
       const vercelReq = createVercelRequest(req, { id: req.params.id });
       await cronogramaByIdHandler(vercelReq, res);
@@ -95,7 +94,7 @@ app.route('/api/cronogramas/:id')
       res.status(500).json({ success: false, message: 'Erro interno do servidor' });
     }
   })
-  .delete(verificarAuth, async (req, res) => {
+  .delete(async (req, res) => {
     try {
       const vercelReq = createVercelRequest(req, { id: req.params.id });
       await cronogramaByIdHandler(vercelReq, res);
@@ -105,9 +104,9 @@ app.route('/api/cronogramas/:id')
     }
   });
 
-// Atividades de um cronograma
+// Atividades do Cronograma
 app.route('/api/cronogramas/:id/atividades')
-  .get(verificarAuth, async (req, res) => {
+  .get(async (req, res) => {
     try {
       const vercelReq = createVercelRequest(req, { id: req.params.id });
       await atividadesHandler(vercelReq, res);
@@ -116,18 +115,22 @@ app.route('/api/cronogramas/:id/atividades')
       res.status(500).json({ success: false, message: 'Erro interno do servidor' });
     }
   })
-  .post(verificarAuth, async (req, res) => {
+  .post(async (req, res) => {
     try {
       const vercelReq = createVercelRequest(req, { id: req.params.id });
       await atividadesHandler(vercelReq, res);
     } catch (error) {
       console.error('Erro ao criar atividade:', error);
+      // O handler de atividades pode retornar erros de validação específicos
+      if (error.message.includes('Dados inválidos')) {
+        return errorResponse(res, error.message, 400);
+      }
       res.status(500).json({ success: false, message: 'Erro interno do servidor' });
     }
   });
 
 // Rota para gerar PDF
-app.post('/api/cronogramas/:id/pdf', verificarAuth, async (req, res) => {
+app.post('/api/cronogramas/:id/pdf', async (req, res) => {
   try {
     const vercelReq = createVercelRequest(req, { id: req.params.id });
     await pdfHandler(vercelReq, res);
@@ -139,16 +142,7 @@ app.post('/api/cronogramas/:id/pdf', verificarAuth, async (req, res) => {
 
 // Atividade por ID
 app.route('/api/atividades/:id')
-  .get(verificarAuth, async (req, res) => {
-    try {
-      const vercelReq = createVercelRequest(req, { id: req.params.id });
-      await atividadeByIdHandler(vercelReq, res);
-    } catch (error) {
-      console.error('Erro ao buscar atividade:', error);
-      res.status(500).json({ success: false, message: 'Erro interno do servidor' });
-    }
-  })
-  .put(verificarAuth, async (req, res) => {
+  .put(async (req, res) => {
     try {
       const vercelReq = createVercelRequest(req, { id: req.params.id });
       await atividadeByIdHandler(vercelReq, res);
@@ -157,7 +151,7 @@ app.route('/api/atividades/:id')
       res.status(500).json({ success: false, message: 'Erro interno do servidor' });
     }
   })
-  .delete(verificarAuth, async (req, res) => {
+  .delete(async (req, res) => {
     try {
       const vercelReq = createVercelRequest(req, { id: req.params.id });
       await atividadeByIdHandler(vercelReq, res);
@@ -170,13 +164,23 @@ app.route('/api/atividades/:id')
 // Rotas de Autenticação
 app.post('/api/auth/cadastro', cadastrarUsuario);
 app.post('/api/auth/login', login);
-app.put('/api/auth/usuarios/:id', verificarAuth, (req, res) => {
-  const vercelReq = createVercelRequest(req, { id: req.params.id });
-  atualizarUsuario(vercelReq, res);
+app.put('/api/auth/usuarios/:id', async (req, res) => {
+  try {
+    const vercelReq = createVercelRequest(req, { id: req.params.id });
+    await atualizarUsuario(vercelReq, res);
+  } catch (error) {
+    console.error('Erro ao atualizar usuário:', error);
+    res.status(500).json({ success: false, message: 'Erro interno do servidor' });
+  }
 });
-app.delete('/api/auth/usuarios/:id', verificarAuth, (req, res) => {
-  const vercelReq = createVercelRequest(req, { id: req.params.id });
-  excluirUsuario(vercelReq, res);
+app.delete('/api/auth/usuarios/:id', async (req, res) => {
+  try {
+    const vercelReq = createVercelRequest(req, { id: req.params.id });
+    await excluirUsuario(vercelReq, res);
+  } catch (error) {
+    console.error('Erro ao excluir usuário:', error);
+    res.status(500).json({ success: false, message: 'Erro interno do servidor' });
+  }
 });
 
 // Rota de fallback

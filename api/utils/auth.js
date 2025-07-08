@@ -73,9 +73,46 @@ const verificarAuth = async (req, res, next) => {
   }
 };
 
+// Nova versão baseada em Promise para ser usada em handlers serverless
+function verificarAuthAsPromise(req) {
+  return new Promise(async (resolve, reject) => {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+
+    if (token == null) {
+      const error = new Error('Token não fornecido');
+      error.statusCode = 401;
+      return reject(error);
+    }
+
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET);
+
+      const usuario = await prisma.usuario.findUnique({
+        where: { id: decoded.id },
+      });
+
+      if (!usuario) {
+        const error = new Error('Usuário do token não encontrado');
+        error.statusCode = 401;
+        return reject(error);
+      }
+
+      const { senha: _, ...usuarioSemSenha } = usuario;
+      req.usuario = usuarioSemSenha;
+      resolve();
+    } catch (err) {
+      const error = new Error('Token inválido ou expirado');
+      error.statusCode = 401;
+      return reject(error);
+    }
+  });
+}
+
 module.exports = {
   hashSenha,
   verificarSenha,
   gerarToken,
-  verificarAuth
+  verificarAuth,
+  verificarAuthAsPromise,
 }; 

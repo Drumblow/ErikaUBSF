@@ -5,6 +5,7 @@ const fs = require('fs').promises;
 const path = require('path');
 const axios = require('axios');
 const { errorResponse, corsHeaders, isValidId } = require('../../../lib/utils');
+const { verificarAuthAsPromise } = require('../../utils/auth');
 
 const prisma = new PrismaClient();
 
@@ -394,6 +395,12 @@ async function generateFullHtml(cronograma, tableBody, weekCount) {
 // --- Handler Principal ---
 module.exports = async (req, res) => {
   if (corsHeaders(req, res)) return;
+
+  try {
+    await verificarAuthAsPromise(req);
+  } catch (error) {
+    return errorResponse(res, error.message, error.statusCode || 401);
+  }
 
   // Autenticação foi movida para o server.js como middleware
   try {

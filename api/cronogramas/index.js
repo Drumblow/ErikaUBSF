@@ -50,6 +50,9 @@ async function getCronogramas(req, res) {
     const where = {
       usuarioId: req.usuario.id // Filtrar apenas cronogramas do usuário autenticado
     };
+
+    console.log(`[Diagnóstico de Cronogramas] Buscando cronogramas para o usuário ID: ${req.usuario.id} (${req.usuario.email}) com os filtros: mes=${mes || 'nenhum'}, ano=${ano || 'nenhum'}`);
+    
     if (mes) where.mes = parseInt(mes);
     if (ano) where.ano = parseInt(ano);
     

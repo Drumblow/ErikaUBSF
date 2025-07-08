@@ -73,9 +73,6 @@ const login = async (req, res) => {
   try {
     const { email, senha } = req.body;
 
-    // !!! AVISO DE SEGURANÇA: Log temporário para depuração. REMOVA em produção. !!!
-    console.log(`[Diagnóstico de Login] Recebida tentativa de login para ${email} com a senha (remova este log): "${senha}"`);
-
     // Validar dados
     if (!email || !senha) {
       return res.status(400).json({
@@ -104,8 +101,6 @@ const login = async (req, res) => {
     const senhaValida = await verificarSenha(senha, usuario.senha);
 
     if (!senhaValida) {
-      // Adiciona log para diagnóstico de hashes antigos
-      console.log(`[Diagnóstico de Login] Tentativa de login falhou para o usuário: ${email}. Hash no banco: ${usuario.senha}`);
       return errorResponse(res, 'Credenciais inválidas', 401);
     }
 

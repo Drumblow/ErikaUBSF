@@ -55,6 +55,8 @@ async function getCronogramas(req, res) {
     
     if (mes) where.mes = parseInt(mes);
     if (ano) where.ano = parseInt(ano);
+
+    console.log('[Diagnóstico de Cronogramas] Objeto `where` final enviado ao Prisma:', JSON.stringify(where));
     
     // Buscar cronogramas com paginação
     const [cronogramas, total] = await Promise.all([

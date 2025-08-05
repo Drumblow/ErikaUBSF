@@ -1,32 +1,14 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "functions": {
     "api/**/*.js": {
       "maxDuration": 30,
       "memory": 1024
     },
-    "api/cronogramas/[id]/pdf.js": {
-      "maxDuration": 60,
-      "memory": 1600
-    },
     "api/cronogramas/[id]/pdf-puppeteer.js": {
       "maxDuration": 60,
-      "memory": 1600,
-      "excludeFiles": [
-        "node_modules/puppeteer/**",
-        "node_modules/@types/**",
-        "node_modules/jest/**",
-        "node_modules/supertest/**",
-        "tests/**",
-        "scripts/**",
-        "prisma/migrations/**",
-        ".git/**",
-        "*.md",
-        "*.test.js"
-      ]
+      "memory": 1600
     }
-  },
-  "env": {
-    "NODE_ENV": "production"
   },
   "headers": [
     {
@@ -34,7 +16,7 @@
       "headers": [
         {
           "key": "Access-Control-Allow-Origin",
-          "value": "https://erika-frontend.vercel.app"
+          "value": "*"
         },
         {
           "key": "Access-Control-Allow-Methods",
@@ -42,11 +24,7 @@
         },
         {
           "key": "Access-Control-Allow-Headers",
-          "value": "Content-Type, Authorization, X-Requested-With"
-        },
-        {
-          "key": "Access-Control-Allow-Credentials",
-          "value": "true"
+          "value": "Content-Type, Authorization"
         }
       ]
     }

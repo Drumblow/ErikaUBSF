@@ -7,7 +7,7 @@
     "dev": "cross-env NODE_ENV=development node server.js",
     "start": "node server.js",
     "vercel:dev": "vercel dev",
-    "build": "npm run db:generate:safe",
+    "build": "npx prisma generate",
     "deploy": "vercel --prod",
     "db:migrate": "npx prisma migrate dev",
     "db:generate": "npx prisma generate",

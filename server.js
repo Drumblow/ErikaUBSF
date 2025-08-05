@@ -130,24 +130,24 @@ app.route('/api/cronogramas/:id/atividades')
     }
   });
 
-// Rota para gerar PDF (PDFShift - mantida para compatibilidade)
+// Rota para gerar PDF (agora usando Puppeteer)
 app.post('/api/cronogramas/:id/pdf', async (req, res) => {
-  try {
-    const vercelReq = createVercelRequest(req, { id: req.params.id });
-    await pdfHandler(vercelReq, res);
-  } catch (error) {
-    console.error('Erro ao gerar PDF:', error);
-    res.status(500).json({ success: false, message: 'Erro interno do servidor' });
-  }
-});
-
-// Rota para gerar PDF com Puppeteer (nova implementação)
-app.post('/api/cronogramas/:id/pdf-puppeteer', async (req, res) => {
   try {
     const vercelReq = createVercelRequest(req, { id: req.params.id });
     await pdfPuppeteerHandler(vercelReq, res);
   } catch (error) {
     console.error('Erro ao gerar PDF com Puppeteer:', error);
+    res.status(500).json({ success: false, message: 'Erro interno do servidor' });
+  }
+});
+
+// Rota para gerar PDF com PDFShift (legado - mantida para fallback)
+app.post('/api/cronogramas/:id/pdf-pdfshift', async (req, res) => {
+  try {
+    const vercelReq = createVercelRequest(req, { id: req.params.id });
+    await pdfHandler(vercelReq, res);
+  } catch (error) {
+    console.error('Erro ao gerar PDF com PDFShift:', error);
     res.status(500).json({ success: false, message: 'Erro interno do servidor' });
   }
 });

@@ -13,35 +13,42 @@ module.exports = async (req, res) => {
     const hasPuppeteer = !!require('./cronogramas/[id]/pdf-puppeteer');
     const hasPDFShift = !!require('./cronogramas/[id]/pdf');
 
+    const status = {
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV || 'development',
+      implementations: {
+        puppeteer: {
+          status: 'ATIVO',
+          route: '/api/cronogramas/{id}/pdf',
+          description: 'Implementação principal usando Puppeteer via rota /pdf'
+        },
+        pdfshift: {
+          status: 'DESCONTINUADO',
+          route: 'REMOVIDO',
+          description: 'Implementação removida para economizar funções serverless'
+        }
+      },
+      routes: {
+        main: '/api/cronogramas/{id}/pdf',
+        puppeteer_direct: '/api/cronogramas/{id}/pdf-puppeteer',
+        status: '/api/pdf-status'
+      },
+      migration: {
+        status: 'CONCLUÍDA',
+        date: '2025-01-05',
+        details: 'Rota /pdf agora redireciona para Puppeteer, CORS configurado'
+      },
+      serverless_functions: {
+        current_count: 12,
+        vercel_limit: 12,
+        status: 'NO LIMITE (test.js removido)'
+      }
+    };
+
     return res.status(200).json({
       success: true,
       message: 'Status das implementações de PDF',
-      data: {
-        timestamp: new Date().toISOString(),
-        implementations: {
-          puppeteer: {
-            available: hasPuppeteer,
-            route: '/api/cronogramas/{id}/pdf',
-            status: 'ATIVO (único)'
-          },
-          pdfshift: {
-            available: false,
-            route: 'REMOVIDO',
-            status: 'DESCONTINUADO'
-          }
-        },
-        migration: {
-          completed: true,
-          date: '2025-01-15',
-          version: '2.0.0'
-        },
-        environment: {
-          node_version: process.version,
-          platform: process.platform,
-          vercel: !!process.env.VERCEL,
-          deployment_url: process.env.VERCEL_URL || 'localhost'
-        }
-      }
+      data: status
     });
 
   } catch (error) {

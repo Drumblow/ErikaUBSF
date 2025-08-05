@@ -7,7 +7,6 @@ const healthHandler = require('./api/health');
 const cronogramasHandler = require('./api/cronogramas/index');
 const cronogramaByIdHandler = require('./api/cronogramas/[id]');
 const atividadesHandler = require('./api/cronogramas/[id]/atividades');
-const pdfHandler = require('./api/cronogramas/[id]/pdf');
 const pdfPuppeteerHandler = require('./api/cronogramas/[id]/pdf-puppeteer');
 const pdfStatusHandler = require('./api/pdf-status');
 const atividadeByIdHandler = require('./api/atividades/[id]');
@@ -152,16 +151,7 @@ app.post('/api/cronogramas/:id/pdf', async (req, res) => {
   }
 });
 
-// Rota para gerar PDF com PDFShift (legado - mantida para fallback)
-app.post('/api/cronogramas/:id/pdf-pdfshift', async (req, res) => {
-  try {
-    const vercelReq = createVercelRequest(req, { id: req.params.id });
-    await pdfHandler(vercelReq, res);
-  } catch (error) {
-    console.error('Erro ao gerar PDF com PDFShift:', error);
-    res.status(500).json({ success: false, message: 'Erro interno do servidor' });
-  }
-});
+
 
 // Atividade por ID
 app.route('/api/atividades/:id')

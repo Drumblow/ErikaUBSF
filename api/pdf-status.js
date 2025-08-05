@@ -22,12 +22,12 @@ module.exports = async (req, res) => {
           puppeteer: {
             available: hasPuppeteer,
             route: '/api/cronogramas/{id}/pdf',
-            status: 'ATIVO (padrão)'
+            status: 'ATIVO (único)'
           },
           pdfshift: {
-            available: hasPDFShift,
-            route: '/api/cronogramas/{id}/pdf-pdfshift',
-            status: 'FALLBACK'
+            available: false,
+            route: 'REMOVIDO',
+            status: 'DESCONTINUADO'
           }
         },
         migration: {

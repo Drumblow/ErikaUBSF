@@ -8,7 +8,7 @@ const { verificarAuthAsPromise } = require('../../utils/auth');
 
 const prisma = new PrismaClient();
 
-const { createBrowser, getPDFOptions } = require('../../../lib/puppeteer-config');
+const { getBrowser, getPDFOptions } = require('../../../lib/puppeteer-config');
 
 // --- Funções Auxiliares (reutilizadas do arquivo original) ---
 const getMonthName = (month) => ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'][month - 1];
@@ -372,7 +372,7 @@ async function generatePdfWithPuppeteer(html) {
   
   try {
     // Criar browser usando configuração otimizada
-    browser = await createBrowser();
+    browser = await getBrowser();
     const page = await browser.newPage();
     
     // Configurar viewport para A4 landscape

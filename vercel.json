@@ -5,7 +5,7 @@
       "maxDuration": 30,
       "memory": 1024
     },
-    "api/cronogramas/[id]/pdf-puppeteer.js": {
+    "api/cronogramas/*/pdf-puppeteer.js": {
       "maxDuration": 60,
       "memory": 1600
     }

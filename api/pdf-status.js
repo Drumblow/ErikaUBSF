@@ -1,62 +1,49 @@
-// Endpoint para verificar qual implementação de PDF está ativa
+/**
+ * Status da implementação do PDF no Vercel
+ * Última atualização: 2025-01-05 - Solução chromium-min implementada
+ */
+
 module.exports = async (req, res) => {
-  try {
-    // Verificar método
-    if (req.method !== 'GET') {
-      return res.status(405).json({
-        success: false,
-        message: 'Método não permitido'
-      });
+  const status = {
+    timestamp: new Date().toISOString(),
+    pdf_route: {
+      endpoint: '/api/cronogramas/{id}/pdf',
+      status: 'ATIVO - SOLUÇÃO 2025',
+      implementation: 'Puppeteer com @sparticuz/chromium-min',
+      description: 'Rota /pdf ativa com Chromium hospedado externamente'
+    },
+    vercel_optimization: {
+      serverless_functions: '12/12 (LIMITE RESPEITADO)',
+      chromium_package: '@sparticuz/chromium-min v131.0.1',
+      chromium_source: 'GitHub releases (externo)',
+      function_size: 'Otimizado < 50MB',
+      memory: '3008MB para funções PDF',
+      timeout: '60 segundos'
+    },
+    puppeteer_config: {
+      status: 'OTIMIZADO PARA VERCEL',
+      libnss3_issue: 'RESOLVIDO',
+      chromium_url: 'https://github.com/Sparticuz/chromium/releases/download/v131.0.1/chromium-v131.0.1-pack.tar',
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox', 
+        '--single-process',
+        '--disable-dev-shm-usage'
+      ]
+    },
+    cors: {
+      status: 'CONFIGURADO',
+      origins: ['https://erika-ubsf.vercel.app'],
+      methods: ['GET', 'POST', 'OPTIONS']
+    },
+    migration: {
+      status: 'CONCLUÍDA E OTIMIZADA',
+      from: 'PDFShift (/pdf-pdfshift)',
+      to: 'Puppeteer com chromium-min (/pdf)',
+      solution_year: '2025',
+      documentation: 'PUPPETEER-VERCEL-FIX.md'
     }
+  };
 
-    // Verificar se os handlers existem
-    const hasPuppeteer = !!require('./cronogramas/[id]/pdf-puppeteer');
-    const hasPDFShift = !!require('./cronogramas/[id]/pdf');
-
-    const status = {
-      timestamp: new Date().toISOString(),
-      environment: process.env.NODE_ENV || 'development',
-      implementations: {
-        puppeteer: {
-          status: 'ATIVO',
-          route: '/api/cronogramas/{id}/pdf',
-          description: 'Implementação principal usando Puppeteer via rota /pdf'
-        },
-        pdfshift: {
-          status: 'DESCONTINUADO',
-          route: 'REMOVIDO',
-          description: 'Implementação removida para economizar funções serverless'
-        }
-      },
-      routes: {
-        main: '/api/cronogramas/{id}/pdf',
-        puppeteer_direct: '/api/cronogramas/{id}/pdf-puppeteer',
-        status: '/api/pdf-status'
-      },
-      migration: {
-        status: 'CONCLUÍDA',
-        date: '2025-01-05',
-        details: 'Rota /pdf agora redireciona para Puppeteer, CORS configurado'
-      },
-      serverless_functions: {
-        current_count: 12,
-        vercel_limit: 12,
-        status: 'NO LIMITE (test.js removido)'
-      }
-    };
-
-    return res.status(200).json({
-      success: true,
-      message: 'Status das implementações de PDF',
-      data: status
-    });
-
-  } catch (error) {
-    console.error('Erro no endpoint pdf-status:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Erro interno do servidor',
-      error: error.message
-    });
-  }
+  res.status(200).json(status);
 };

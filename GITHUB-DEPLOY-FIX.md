@@ -1,6 +1,15 @@
 # 🔧 GitHub Deploy Fix Guide
 
-## 🚨 Problema: Erro no GitHub antes do Vercel
+## 🚨 Problema Identificado: Runtime Format Error
+
+**Erro específico encontrado:**
+```
+Error: Function Runtimes must have a valid version, for example `now-php@1.0.0`.
+```
+
+**Causa:** O formato do runtime no vercel.json estava incorreto (`nodejs20.x` em vez de `@vercel/node`)
+
+## ✅ SOLUÇÃO IMPLEMENTADA:
 
 ### ✅ Correções Implementadas:
 

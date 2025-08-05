@@ -100,6 +100,12 @@ A API estará disponível em: `http://localhost:3000`
 - `PUT /api/atividades/{id}` - Atualizar atividade
 - `DELETE /api/atividades/{id}` - Deletar atividade
 
+### Geração de PDF
+- `POST /api/cronogramas/{id}/pdf` - Gerar PDF usando PDFShift (legado)
+- `POST /api/cronogramas/{id}/pdf-puppeteer` - Gerar PDF usando Puppeteer (recomendado)
+
+> **Nota:** A nova implementação com Puppeteer resolve problemas de marca d'água e compatibilidade com dispositivos móveis.
+
 ## 📝 Exemplos de Uso
 
 ### Criar Cronograma
@@ -132,6 +138,64 @@ curl -X POST http://localhost:3000/api/cronogramas/{cronograma_id}/atividades \
     "diaSemana": "SEXTA-MANHÃ",
     "descricao": "Consultas de rotina"
   }'
+```
+
+### Gerar PDF do Cronograma
+
+```bash
+# Nova implementação com Puppeteer (recomendada)
+curl -X POST http://localhost:3000/api/cronogramas/{cronograma_id}/pdf-puppeteer \
+  -H "Authorization: Bearer {seu_token}" \
+  -H "Content-Type: application/json"
+
+# Implementação legada com PDFShift
+curl -X POST http://localhost:3000/api/cronogramas/{cronograma_id}/pdf \
+  -H "Authorization: Bearer {seu_token}" \
+  -H "Content-Type: application/json"
+```
+
+## 📄 Sistema de Geração de PDF
+
+### Implementações Disponíveis
+
+#### 1. Puppeteer (Recomendado) - `/api/cronogramas/{id}/pdf-puppeteer`
+**Vantagens:**
+- ✅ Sem marca d'água
+- ✅ Compatível com iOS/iPhone
+- ✅ Controle total sobre o layout
+- ✅ Funciona offline (sem dependência de API externa)
+- ✅ Melhor performance
+- ✅ Gratuito
+
+**Tecnologias:**
+- `puppeteer-core` + `chrome-aws-lambda` para Vercel
+- `puppeteer` para desenvolvimento local
+- Configuração otimizada para ambientes serverless
+
+#### 2. PDFShift (Legado) - `/api/cronogramas/{id}/pdf`
+**Limitações:**
+- ❌ Adiciona marca d'água no plano gratuito
+- ❌ Problemas de compatibilidade com iOS
+- ❌ Dependência de serviço externo
+- ❌ Limitações de uso no plano gratuito
+
+### Configuração para Produção
+
+O sistema detecta automaticamente o ambiente e usa as configurações apropriadas:
+
+- **Vercel/AWS Lambda:** `chrome-aws-lambda` + `puppeteer-core`
+- **Desenvolvimento Local:** `puppeteer` padrão
+
+### Migração
+
+Para migrar do PDFShift para Puppeteer, simplesmente altere o endpoint:
+
+```javascript
+// Antes
+fetch('/api/cronogramas/123/pdf', { method: 'POST' })
+
+// Depois
+fetch('/api/cronogramas/123/pdf-puppeteer', { method: 'POST' })
 ```
 
 ## 🚀 Deploy no Vercel

@@ -8,6 +8,7 @@ const cronogramasHandler = require('./api/cronogramas/index');
 const cronogramaByIdHandler = require('./api/cronogramas/[id]');
 const atividadesHandler = require('./api/cronogramas/[id]/atividades');
 const pdfHandler = require('./api/cronogramas/[id]/pdf');
+const pdfPuppeteerHandler = require('./api/cronogramas/[id]/pdf-puppeteer');
 const atividadeByIdHandler = require('./api/atividades/[id]');
 const { cadastrarUsuario, login, atualizarUsuario, excluirUsuario } = require('./api/auth/usuarios');
 const { verificarAuth } = require('./api/utils/auth');
@@ -129,13 +130,24 @@ app.route('/api/cronogramas/:id/atividades')
     }
   });
 
-// Rota para gerar PDF
+// Rota para gerar PDF (PDFShift - mantida para compatibilidade)
 app.post('/api/cronogramas/:id/pdf', async (req, res) => {
   try {
     const vercelReq = createVercelRequest(req, { id: req.params.id });
     await pdfHandler(vercelReq, res);
   } catch (error) {
     console.error('Erro ao gerar PDF:', error);
+    res.status(500).json({ success: false, message: 'Erro interno do servidor' });
+  }
+});
+
+// Rota para gerar PDF com Puppeteer (nova implementação)
+app.post('/api/cronogramas/:id/pdf-puppeteer', async (req, res) => {
+  try {
+    const vercelReq = createVercelRequest(req, { id: req.params.id });
+    await pdfPuppeteerHandler(vercelReq, res);
+  } catch (error) {
+    console.error('Erro ao gerar PDF com Puppeteer:', error);
     res.status(500).json({ success: false, message: 'Erro interno do servidor' });
   }
 });

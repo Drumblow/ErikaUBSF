@@ -11,14 +11,6 @@ yarn-error.log*
 .env.test.local
 .env.production.local
 
-# Documentation files
-API_DOCUMENTATION.md
-CRONOGRAMA MES JANEIRO (2).md
-CRONOGRAMA MES JANEIRO (2).pdf
-CRONOGRAMA MES JUNHO.pdf
-PLANEJAMENTO_PROJETO.md
-CRONOGRAMA MES JUNHO/
-
 # Vercel
 .vercel
 

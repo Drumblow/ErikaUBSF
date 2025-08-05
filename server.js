@@ -9,6 +9,7 @@ const cronogramaByIdHandler = require('./api/cronogramas/[id]');
 const atividadesHandler = require('./api/cronogramas/[id]/atividades');
 const pdfHandler = require('./api/cronogramas/[id]/pdf');
 const pdfPuppeteerHandler = require('./api/cronogramas/[id]/pdf-puppeteer');
+const pdfStatusHandler = require('./api/pdf-status');
 const atividadeByIdHandler = require('./api/atividades/[id]');
 const { cadastrarUsuario, login, atualizarUsuario, excluirUsuario } = require('./api/auth/usuarios');
 const { verificarAuth } = require('./api/utils/auth');
@@ -52,6 +53,16 @@ app.get('/api/health', async (req, res) => {
     await healthHandler(req, res);
   } catch (error) {
     console.error('Erro no health check:', error);
+    res.status(500).json({ success: false, message: 'Erro interno do servidor' });
+  }
+});
+
+// Status das implementações de PDF
+app.get('/api/pdf-status', async (req, res) => {
+  try {
+    await pdfStatusHandler(req, res);
+  } catch (error) {
+    console.error('Erro no pdf-status:', error);
     res.status(500).json({ success: false, message: 'Erro interno do servidor' });
   }
 });

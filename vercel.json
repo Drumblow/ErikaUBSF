@@ -1,12 +1,15 @@
 {
   "functions": {
     "api/**/*.js": {
-      "runtime": "nodejs18.x"
+      "runtime": "nodejs20.x",
+      "maxDuration": 30
     }
   },
   "env": {
-    "DATABASE_URL": "@database_url"
+    "DATABASE_URL": "@database_url",
+    "NODE_ENV": "production"
   },
   "regions": ["gru1"],
-  "buildCommand": "npx prisma generate"
+  "buildCommand": "npx prisma generate",
+  "installCommand": "npm install --production=false"
 }

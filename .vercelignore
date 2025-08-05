@@ -11,3 +11,17 @@ node_modules
 prisma/migrations
 *.md
 !README.md
+
+# Test files
+tests/
+examples/
+jest.config.js
+*.test.js
+
+# Documentation
+*.pdf
+MIGRATION-GUIDE.md
+PUPPETEER-UPDATE.md
+FRONTEND_GUIDE.md
+PLANEJAMENTO_PROJETO.md
+BACKEND_PDF_REQUEST.md
